@@ -1,0 +1,14 @@
+# Python bytecode and virtual environments
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# Locally installed dependencies and downloaded MNIST data
+/libs/
+/data/
+
+# Local environment configuration
+.env
+.env.*
+!.env.example

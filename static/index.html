@@ -1,0 +1,620 @@
+<!DOCTYPE html>
+<!--
+  手写数字识别 · 机器学习学习平台
+  ============================================================
+  这个网页不只是"看训练"，而是把训练过程变成一节可交互的课：
+    1. 认识数据  —— MNIST 手写数字是什么
+    2. 认识模型  —— 卷积/池化/Dropout/Softmax 每个部件在"学什么"
+    3. 实时训练  —— 边看曲线边读"现在正在发生什么"；还能看 CNN
+                    第 1 层卷积学到的"特征图"和 Softmax 概率条
+    4. 调参实验室—— 改学习率/轮数/批大小/丢弃率，观察效果变化
+    5. 单词表    —— epoch/batch/前向/反向/过拟合 等概念速查
+
+  技术：每 0.7 秒轮询 /api/state，用原生 SVG / Canvas 绘制，零外部依赖。
+-->
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>手写数字识别 · 机器学习学习平台</title>
+<style>
+  :root{
+    --bg:#0e1016; --panel:#151923; --panel2:#1b2130; --line:#2a3040;
+    --text:#e8ebf4; --muted:#8b93a7; --accent:#4f8cff; --green:#34d399;
+    --red:#f87171; --amber:#fbbf24; --purple:#a78bfa;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html{scroll-behavior:smooth}
+  body{background:var(--bg);color:var(--text);font-family:"Segoe UI",system-ui,-apple-system,sans-serif}
+  a{color:var(--accent);text-decoration:none}
+
+  /* 顶部导航 */
+  nav{position:sticky;top:0;z-index:50;background:rgba(14,16,22,.92);backdrop-filter:blur(6px);
+      border-bottom:1px solid var(--line);padding:12px 26px;display:flex;align-items:center;gap:22px;flex-wrap:wrap}
+  nav .brand{font-weight:700;font-size:16px}
+  nav .brand small{color:var(--muted);font-weight:400}
+  nav .links{display:flex;gap:16px;font-size:13px;color:var(--muted)}
+  nav .links a:hover{color:var(--text)}
+  nav .status{display:flex;align-items:center;gap:7px;font-size:12px;padding:5px 12px;
+      border-radius:16px;background:var(--panel2);border:1px solid var(--line)}
+  .dot{width:9px;height:9px;border-radius:50%;background:var(--muted)}
+  .dot.running{background:var(--green);animation:pulse 1.1s infinite}
+  .dot.paused{background:var(--amber)} .dot.done{background:var(--accent)}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
+  nav .ctrl{margin-left:auto;display:flex;gap:8px}
+
+  /* 通用 */
+  .wrap{padding:26px;max-width:1200px;margin:0 auto}
+  section{margin-bottom:46px}
+  h2.sec{font-size:20px;margin-bottom:6px;display:flex;align-items:center;gap:10px}
+  h2.sec .no{background:var(--accent);color:#fff;width:26px;height:26px;border-radius:7px;
+      display:inline-flex;align-items:center;justify-content:center;font-size:14px;flex:none}
+  .lead{color:var(--muted);font-size:14px;margin-bottom:18px;max-width:820px;line-height:1.7}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px}
+  .full{grid-column:1/-1}
+  .card h3{font-size:13px;color:var(--muted);font-weight:600;letter-spacing:.4px;
+      text-transform:uppercase;margin-bottom:12px;display:flex;gap:8px;align-items:center}
+  button{cursor:pointer;border:1px solid var(--line);background:var(--panel2);color:var(--text);
+      padding:7px 15px;border-radius:8px;font-size:13px;transition:.15s}
+  button:hover{border-color:var(--accent)} button.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+  button.primary:hover{filter:brightness(1.12)}
+  svg{width:100%;height:auto;display:block}
+  .num{font-size:20px;font-weight:600}
+  .teach{font-size:12.5px;color:var(--muted);line-height:1.7;margin-top:10px;
+      border-left:3px solid var(--accent);padding-left:10px}
+  .teach b{color:var(--text)}
+
+  /* 认识数据 */
+  .intro-flex{display:flex;gap:24px;flex-wrap:wrap;align-items:flex-start}
+  .sample-big{display:grid;grid-template-columns:repeat(5,auto);gap:8px;background:var(--panel2);
+      border:1px solid var(--line);border-radius:12px;padding:14px;flex:1;min-width:200px}
+  .sample-big .cell{text-align:center;font-size:11px;color:var(--muted)}
+  .sample-big canvas{width:56px;height:56px;image-rendering:pixelated;background:#fff;
+      border-radius:6px;border:1px solid var(--line)}
+
+  /* 概念卡片 */
+  details{border:1px solid var(--line);border-radius:10px;margin-bottom:10px;background:var(--panel);
+      overflow:hidden}
+  details summary{cursor:pointer;padding:13px 16px;font-size:14px;list-style:none;display:flex;
+      gap:10px;align-items:center;font-weight:600}
+  details summary::before{content:"▶";color:var(--accent);font-size:11px;transition:.15s}
+  details[open] summary::before{transform:rotate(90deg)}
+  details .body{padding:2px 18px 16px;font-size:13.5px;color:var(--muted);line-height:1.8;border-top:1px solid var(--line)}
+  details .body b{color:var(--text)}
+  details .body ul{margin:6px 0 0 18px}
+  details .tag{font-size:11px;background:var(--accent);color:#fff;border-radius:5px;padding:2px 7px;font-weight:600;margin-left:auto;flex:none}
+
+  /* KPI */
+  .kpis{display:flex;gap:26px;flex-wrap:wrap}
+  .kpi small{display:block;color:var(--muted);font-size:12px}
+  .kpi b{font-size:18px}
+  .progress{height:10px;background:var(--panel2);border-radius:6px;overflow:hidden;margin-top:10px}
+  .progress>div{height:100%;background:linear-gradient(90deg,var(--accent),#7aa7ff);width:0%;transition:width .3s}
+  .proglabel{display:flex;justify-content:space-between;font-size:12px;color:var(--muted);margin-top:6px}
+
+  .legend{display:flex;gap:16px;font-size:12px;color:var(--muted);margin-bottom:8px;flex-wrap:wrap}
+  .legend i{width:14px;height:3px;display:inline-block;vertical-align:middle;margin-right:5px;border-radius:2px}
+
+  /* 特征图 */
+  .fmaps{display:grid;grid-template-columns:repeat(auto-fill,minmax(86px,1fr));gap:8px}
+  .fcell{background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:5px;text-align:center}
+  .fcell canvas{width:100%;aspect-ratio:1;image-rendering:pixelated;background:#fff;border-radius:4px}
+  .fcell small{font-size:10px;color:var(--muted)}
+
+  /* Softmax */
+  #smax{display:flex;flex-direction:column;gap:3px}
+  .srow{display:grid;grid-template-columns:30px 1fr 48px;gap:8px;align-items:center;font-size:12px}
+  .srow .barbox{height:16px;background:var(--panel2);border-radius:4px;overflow:hidden;position:relative}
+  .srow .bar{height:100%;background:linear-gradient(90deg,var(--purple),#c4b5fd);width:0%}
+  .srow.true .tagk{color:var(--green);font-weight:700}
+  .srow .pct{text-align:right;color:var(--muted)}
+
+  /* 样例 */
+  .samples{display:grid;grid-template-columns:repeat(auto-fill,minmax(60px,1fr));gap:9px}
+  .sample{background:var(--panel2);border:2px solid var(--line);border-radius:8px;padding:5px;text-align:center}
+  .sample.correct{border-color:var(--green)} .sample.wrong{border-color:var(--red)}
+  .sample canvas{width:100%;image-rendering:pixelated;border-radius:4px;background:#fff}
+  .sample .lab{font-size:11px;margin-top:4px}
+  .sample b.c{color:var(--green)} .sample b.w{color:var(--red)}
+
+  /* 调参实验室 */
+  .lab-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:14px;margin-bottom:8px}
+  .lfield label{display:block;font-size:12px;color:var(--muted);margin-bottom:5px}
+  .lfield input{width:100%;background:var(--panel2);border:1px solid var(--line);color:var(--text);
+      padding:8px 10px;border-radius:8px;font-size:14px}
+  .lfield .hint{font-size:11px;color:var(--muted);margin-top:5px;line-height:1.5}
+
+  /* 日志 / 词汇 */
+  #log{background:#0b0d12;border:1px solid var(--line);border-radius:8px;padding:10px;
+      font-family:Consolas,ui-monospace,monospace;font-size:12px;max-height:170px;overflow-y:auto;
+      color:#9fdcff;line-height:1.6}
+  .gloss{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px}
+  .gloss .g{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px}
+  .gloss .g h4{color:var(--amber);font-size:13px;margin-bottom:6px}
+  .gloss .g p{font-size:12.5px;color:var(--muted);line-height:1.7}
+  footer{color:var(--muted);font-size:12.5px;border-top:1px solid var(--line);
+      padding:18px 26px;text-align:center;line-height:1.8}
+  @media(max-width:900px){.grid{grid-template-columns:1fr}.wrap{padding:16px}}
+</style>
+</head>
+<body>
+
+<!-- ================= 导航 ================= -->
+<nav>
+  <div class="brand">✍️ 手写数字识别 <small>· 机器学习学习平台</small></div>
+  <div class="links">
+    <a href="#intro">认识数据</a><a href="#model">认识模型</a>
+    <a href="#live">实时训练</a><a href="#lab">调参实验室</a><a href="#gloss">单词表</a>
+  </div>
+  <div class="status"><span id="dot" class="dot idle"></span><span id="statusTxt">连接中…</span></div>
+  <div class="ctrl">
+    <button id="btnStart" class="primary" onclick="control('start')">▶ 开始/继续</button>
+    <button onclick="control('pause')">⏸ 暂停</button>
+    <button onclick="resetQuick()">↺ 恢复默认并重训</button>
+  </div>
+</nav>
+
+<div class="wrap">
+
+<!-- ================= 1. 认识数据 ================= -->
+<section id="intro">
+  <h2 class="sec"><span class="no">1</span> 认识数据：什么是 MNIST / 手写数字识别</h2>
+  <p class="lead">
+    我们的目标是教会电脑"看懂手写数字"。数据来自 <b>MNIST</b> —— 机器学习界最著名的入门数据集：
+    包含 <b>6 万张训练图</b> 和 <b>1 万张测试图</b>，每张是 <b>28×28 像素</b> 的灰度手写数字（0~9）。
+    下面左区是几个真实的数字样本，右区是整条"数据流"。
+  </p>
+  <div class="intro-flex">
+    <div class="sample-big" id="digits"></div>
+    <div class="card" style="flex:2;min-width:300px">
+      <h3>一条数据的完整旅行</h3>
+      <div class="teach" style="border-left-color:var(--purple)">
+        <b>一张 28×28 的图</b>，对电脑来说只是一张 784 个 0~1 之间的数组成的表格
+        （0=黑，1=白，0.5=灰）。<br>
+        ➜ 它先经过 <b>卷积层</b> 抓住局部特征（笔画、拐角、圆圈），
+        再经过 <b>池化</b> 缩小尺寸；<br>
+        ➜ 最后 <b>全连接层</b> 把特征"汇总打分"，输出 10 个分数，最大的那个就是预测。<br><br>
+        下方 <b>「实时训练」</b> 区，你就能亲眼看到这张图被卷积成一张张"特征图"，
+        以及模型最终给出的 10 个类概率。
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= 2. 认识模型 ================= -->
+<section id="model">
+  <h2 class="sec"><span class="no">2</span> 认识模型：这个神经网络都由什么组成</h2>
+  <p class="lead">点击展开每个概念。这些就是深度学习最核心的积木，学会它们基本就理解了 CNN。</p>
+
+  <details open><summary>卷积层 Conv2d —— 用"扫描窗口"找特征 <span class="tag">核心</span></summary>
+    <div class="body">
+      想象一个 <b>3×3 的小窗口（卷积核）</b> 在图片上从左到右、从上到下滑动，每滑到一个位置，
+      就把窗口里 9 个像素和它自己 9 个权重<b>先乘后加</b>，得到 1 个数，最终拼成一张
+      <b>特征图</b>。我们用 32 个不同的卷积核，就得到 32 张特征图 —— 每个核负责寻找
+      一种特定的局部样式（某个方向的边、某种拐角、某个笔画）。<br><br>
+      <b>为什么有用？</b> 同样的边/角在不同数字里反复出现（比如 4、6、8 都有竖线）。
+      网络把"有竖线/有圈/有斜边"这些判断组合起来，就能区分不同数字 —— 而不是死记每个像素。
+    </div>
+  </details>
+
+  <details><summary>池化层 MaxPool —— 压缩尺寸 + 更鲁棒 <span class="tag">核心</span></summary>
+    <div class="body">
+      在 2×2 的小区域里<b>只取最大值</b>，把尺寸减半（28→14→7）。作用：<br>
+      <ul>
+        <li><b>省计算</b>：特征图越小，后面的层算得越快；</li>
+        <li><b>提取主要信息</b>：只要"这里某个特征被强烈激活"，就保留它；</li>
+        <li><b>抗噪/抗位移</b>：数字稍微偏一点，关键特征依然被保留。</li>
+      </ul>
+    </div>
+  </details>
+
+  <details><summary>激活函数 ReLU —— 让网络能"变弯"</summary>
+    <div class="body">
+      ReLU 就是"负数一律变成 0，正数原样保留"。为什么需要它？<br>
+      卷积和全连接都是<b>线性运算</b>，而"线性叠线性还是线性"——如果不用激活函数，
+      无论叠多少层，效果都和一层一样，学不了复杂规律。ReLU 这种<b>非线性</b>激活函数
+      让每一层都能表达更复杂的函数，网络才"弯得起来"。
+    </div>
+  </details>
+
+  <details><summary>Dropout —— 随机闭嘴，防"背答案" <span class="tag">防过拟合</span></summary>
+    <div class="body">
+      训练时，每个 batch 随机让 <b>30%</b> 的神经元输出变成 0（暂时"闭嘴"）。
+      这样网络不能依赖某一个或几个神经元——就像考试时不让你只看某个角落的笔记。
+      它被迫<b>分散记忆、学更通用的规律</b>，是防过拟合最常用的手段之一。
+    </div>
+  </details>
+
+  <details><summary>全连接层 Linear —— 打分与组合特征</summary>
+    <div class="body">
+      把前面提取到的 3136 个特征 <b>每个都连到每个输出</b>（权重矩阵巨大），
+      相当于"综合前面所有发现，给出判断"。第一个 Linear 把特征压到 128 维的"抽象结论"，
+      第二个把 128 维映射成 <b>10 个类分数</b>。
+    </div>
+  </details>
+
+  <details><summary>Softmax + 交叉熵损失 —— 把分数变概率并衡量"错多少"</summary>
+    <div class="body">
+      <b>Softmax</b>：把网络输出的 10 个原始分数变成 10 个 <b>和为 1 的概率</b>
+      （最大分数概率最大）。例如 [0.01, 0.90, 0.03, …] 表示"有 90% 把握是数字 1"。<br><br>
+      <b>交叉熵损失（CrossEntropyLoss）</b>：衡量"模型给出的概率分布"和"真实答案分布"
+      差多少。真实答案是"1 的概率是 1，其余是 0"。差距越大，loss 越大。
+      <b>训练的目标就是让这个 loss 一路变小</b>。
+    </div>
+  </details>
+</section>
+
+<!-- ================= 3. 实时训练 ================= -->
+<section id="live">
+  <h2 class="sec"><span class="no">3</span> 实时训练 —— 看着模型"学"起来</h2>
+  <p class="lead">
+    训练每 0.7 秒刷新一次。右上角的状态、下方的曲线、特征图和概率条都在实时跳动。
+    <b>训练过程本质上就是无数次的"前向 → 算 loss → 反向传播 → 更新参数"。</b>
+  </p>
+
+  <div class="grid">
+    <!-- 训练进度 -->
+    <div class="card">
+      <h3>训练进度（epoch / batch / step）</h3>
+      <div class="kpis">
+        <div class="kpi"><small>当前 Loss（越小越好）</small><b id="kLoss">—</b></div>
+        <div class="kpi"><small>Epoch</small><b id="kEpoch">—</b></div>
+        <div class="kpi"><small>Step（第几批）</small><b id="kStep">—</b></div>
+        <div class="kpi"><small>验证准确率</small><b id="kAcc">—</b></div>
+        <div class="kpi"><small>已用 / 预计</small><b id="kTime">—</b></div>
+      </div>
+      <div class="progress"><div id="pbar"></div></div>
+      <div class="proglabel"><span>当前轮次：<b id="pEpoch">—</b></span><span id="pPct">—</span></div>
+      <div class="teach" id="teachProgress">
+        一个 <b>epoch</b> = 把 6 万张训练图完整看一遍；每看 64 张（一个 <b>batch</b>）
+        就更新一次参数（这一步叫一个 <b>step</b>）。现在正在……
+      </div>
+    </div>
+
+    <!-- 训练 Loss -->
+    <div class="card">
+      <h3>训练 Loss 曲线</h3>
+      <div class="legend"><span><i style="background:#4f8cff"></i>平滑 Loss</span>
+        <span><i style="background:#54607a"></i>逐 batch</span></div>
+      <svg id="lossChart" viewBox="0 0 100 60" preserveAspectRatio="none"></svg>
+      <div class="teach" id="teachLoss">
+        loss 是"模型和正确答案差多少"。看到曲线<b>向下走</b>，就说明模型正在进步……
+      </div>
+    </div>
+
+    <!-- 准确率 -->
+    <div class="card">
+      <h3>准确率曲线</h3>
+      <div class="legend"><span><i style="background:#34d399"></i>训练 acc</span>
+        <span><i style="background:#fbbf24"></i>验证 acc</span></div>
+      <svg id="accChart" viewBox="0 0 100 60" preserveAspectRatio="none"></svg>
+      <div class="teach" id="teachAcc">验证集是模型"没看过"的数据，用它评的准确率才是真实水平。</div>
+      <div class="legend" style="margin-top:10px"><span><i style="background:#4f8cff"></i>每类数字准确率</span></div>
+      <svg id="accBars" viewBox="0 0 100 40" preserveAspectRatio="none"></svg>
+    </div>
+
+    <!-- 特征图 -->
+    <div class="card">
+      <h3>第 1 层卷积学到的特征图（看 CNN 在"找什么"）</h3>
+      <div class="fmaps" id="fmaps"><div class="teach" style="grid-column:1/-1">等训练跑过一轮后自动显示 32 张特征图。</div></div>
+      <div class="teach">
+        <b>亮的地方</b> = 该卷积核在图片那个位置"被强烈激活"，也就是它发现了它负责寻找的局部特征
+        （某个方向的边界、拐角、小线段）。不同格子是不同的卷积核，所以看到的是"从不同角度观察"的结果。
+        对比最上面的原始数字图会很有意思。
+      </div>
+    </div>
+  </div>
+
+  <!-- Softmax 概率条 -->
+  <div class="card full" style="margin-top:16px">
+    <h3>Softmax 概率条 —— 模型"现在的想法" <span id="smaxTitle" style="text-transform:none;color:var(--muted)"></span></h3>
+    <div id="smax" style="margin-bottom:8px"></div>
+    <div class="teach" id="teachSmax" style="border-left-color:var(--purple)">
+      <b>绿格</b> 是真实答案。看模型如何把"相信的程度"从最初的混乱（各概率差不多）
+      逐渐聚到正确的数字上 —— 这就是"学习"在概率层面的样子。
+    </div>
+  </div>
+
+  <!-- 预测样例 -->
+  <div class="card full" style="margin-top:16px">
+    <h3>预测样例 —— 随机抽查验证图的预测结果 <span id="sampleNote" style="text-transform:none;color:var(--muted)"></span></h3>
+    <div class="samples" id="samples"></div>
+    <div class="teach">绿框=预测正确，红框=预测错误。每行下面是 <b>真实标签</b> 和 <b>预测标签</b>（及置信度%）。</div>
+  </div>
+
+  <!-- 日志 -->
+  <div class="card full" style="margin-top:16px">
+    <h3>训练日志</h3>
+    <div id="log"></div>
+  </div>
+</section>
+
+<!-- ================= 4. 调参实验室 ================= -->
+<section id="lab">
+  <h2 class="sec"><span class="no">4</span> 调参实验室 —— 动手改变超参数</h2>
+  <p class="lead">
+    超参数是"训练前定好的旋钮"。改一改、点"应用并重新训练"，观察曲线和准确率怎么变化。
+    <b>这是理解机器学习最有效的方式。</b>
+  </p>
+  <div class="card full">
+    <div class="lab-grid">
+      <div class="lfield"><label>Epochs（训练轮数）</label>
+        <input id="inpEpochs" type="number" min="1" max="30" value="6">
+        <div class="hint">看完整训练集几次。太少学不完；太多可能过拟合且浪费时间。</div></div>
+      <div class="lfield"><label>学习率 lr（步长）</label>
+        <input id="inpLr" type="number" step="0.0001" min="0.0001" max="0.1" value="0.001">
+        <div class="hint">每次更新走多大。太大=乱跳/震荡，太小=收敛极慢。</div></div>
+      <div class="lfield"><label>Batch Size（批大小）</label>
+        <input id="inpBatch" type="number" min="16" max="512" step="16" value="64">
+        <div class="hint">每批喂多少样本来更新一次。大=更新稳但慢，小=波动大。</div></div>
+      <div class="lfield"><label>Dropout（丢弃率）</label>
+        <input id="inpDrop" type="number" step="0.05" min="0" max="0.7" value="0.3">
+        <div class="hint">防过拟合强度。0 = 关闭；设大后观察训练/验证准确率差距。</div></div>
+    </div>
+    <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+      <button class="primary" onclick="runLab()">⚙ 应用并重新训练</button>
+      <span id="labMsg" style="font-size:12px;color:var(--muted)"></span>
+    </div>
+    <div class="teach" id="teachLab">
+      <b>玩法建议1</b>：把 lr 改成 0.05 重训，看 loss 是不是剧烈震荡、准确率上不去。（过大）
+      <b>玩法建议2</b>：把 lr 改成 0.0001，看是不是几乎不收敛。（过小）<br>
+      <b>玩法建议3</b>：Dropout 调成 0，对比训练 acc 和验证 acc 的差距，体会过拟合。
+    </div>
+  </div>
+</section>
+
+<!-- ================= 5. 单词表 ================= -->
+<section id="gloss">
+  <h2 class="sec"><span class="no">5</span> 机器学习常用词速查</h2>
+  <div class="gloss">
+    <div class="g"><h4>Epoch / Batch / Step</h4><p>一个 <b>Epoch</b> 把全部训练数据看一遍。
+      数据太大就切成很多个 <b>Batch</b>（一小批），每处理一个 Batch 更新一次参数就是一步 <b>Step</b>。</p></div>
+    <div class="g"><h4>前向 / 反向传播</h4><p><b>前向</b>：数据走完网络得到预测。
+      <b>反向</b>：把误差从输出"倒推"回每一层，算出每个权重该往哪调多大。是深度学习的引擎。</p></div>
+    <div class="g"><h4>损失函数 Loss</h4><p>衡量"当前预测离正确答案多远"的数值。训练就是不断把 loss 变小。
+      分类任务常用交叉熵。</p></div>
+    <div class="g"><h4>优化器 Optimizer</h4><p>决定"怎么根据梯度更新权重"。常见的有 SGD、Adam。Adam 自带自适应步长，新手首选。</p></div>
+    <div class="g"><h4>学习率 lr</h4><p>每次更新权重的"步子大小"。偏大震荡不收敛，偏小收敛太慢，是炼丹最常调的量。</p></div>
+    <div class="g"><h4>过拟合 Overfitting</h4><p>训练集得分很高、验证集很低 → 模型"背答案"了，没学通用规律。
+      对策：更多数据、加 Dropout、降复杂度。</p></div>
+    <div class="g"><h4>训练集 vs 验证集</h4><p>训练集用来更新参数；验证/测试集用来"考试"，模型从没见过。
+      只有测试集分数高，模型才算真的好。</p></div>
+    <div class="g"><h4>混淆矩阵</h4><p>横轴猜成什么、纵轴真实是什么的计数表。对角线越高，模型越准；
+      看非对角线能发现它最容易把谁认混。</p></div>
+    <div class="g"><h4>梯度 Gradient</h4><p>损失对某个权重的"偏导数"，表示"这个权重动一点，loss 怎么变"。
+      沿负梯度方向调整，loss 就会下降。</p></div>
+    <div class="g"><h4>特征 / 特征图</h4><p>网络从数据中"提炼出来的有意义的量"。卷积输出的每张图就是一个特征图，
+      代表"原始图像在哪个位置出现了哪种局部特征"。</p></div>
+  </div>
+</section>
+
+<footer>
+  还想继续学？下一步建议：① 把 MNIST 换成「Fashion-MNIST」（衣服分类）看通用性；
+  ② 试 CNN + 更多层或残差连接看精度的变化；③ 学 PyTorch 官网的教程系统地掌握框架。
+  源码与完整注释见项目文件夹（model.py / train.py / server.py 都写了详细学习注释）。
+</footer>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+let last = null;              // 上次的 state，用于判断某些部分是否需要重绘
+let lastFmapsVer = -1;        // 特征图只在版本号变化时才重绘（省性能）
+
+// ---------------- 工具 ----------------
+const fmt = v => (v === null || v === undefined) ? '—' : (+v).toFixed(4);
+const fmtTime = s => { if(!s) return '—'; const m=Math.floor(s/60),ss=Math.floor(s%60); return m+':'+(ss<10?'0':'')+ss; };
+const STATUS = {running:'训练中', paused:'已暂停', idle:'未开始', done:'已完成', '连接中':'连接中'};
+
+function control(action, hyper){
+  const body = hyper ? {action, ...hyper} : {action};
+  fetch('/api/control',{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify(body)}).catch(()=>{});
+}
+function resetQuick(){  // 顶部"恢复默认并重训"
+  const cfg = {epochs:6, lr:0.001, batch_size:64, dropout:0.3};
+  [$('inpEpochs'),$('inpLr'),$('inpBatch'),$('inpDrop')].forEach(()=>{});
+  $('inpEpochs').value=6; $('inpLr').value=0.001; $('inpBatch').value=64; $('inpDrop').value=0.3;
+  control('reset', cfg);
+}
+function runLab(){  // 调参实验室"应用并重新训练"
+  const cfg = {
+    epochs: Math.max(1,+$('inpEpochs').value||6),
+    lr: +$('inpLr').value||0.001,
+    batch_size: Math.max(16,+$('inpBatch').value||64),
+    dropout: Math.min(0.7,Math.max(0,+$('inpDrop').value||0)),
+  };
+  $('labMsg').textContent='已应用新配置，重新训练中…';
+  control('reset', cfg);
+}
+
+// ---------------- 绘制 ----------------
+function poly(el, pts, stroke, w){
+  const d = pts.map((p,i)=>(i?'L':'M')+p[0].toFixed(2)+' '+p[1].toFixed(2)).join(' ');
+  const path = document.createElementNS('http://www.w3.org/2000/svg','path');
+  path.setAttribute('d',d); path.setAttribute('fill','none'); path.setAttribute('stroke',stroke);
+  path.setAttribute('stroke-width',w); path.setAttribute('stroke-linejoin','round');
+  path.setAttribute('stroke-linecap','round'); el.appendChild(path);
+}
+function drawChart(svgId, x, series, yZero=true){
+  const el=$(svgId); el.innerHTML='';
+  const W=100,H=60,pad=5;
+  const all = series.flatMap(s=>s.data).filter(v=>v!==null && v!==undefined);
+  if(x.length<2 || !all.length) return;
+  let ymin=Math.min(...all), ymax=Math.max(...all);
+  if(ymin===ymax){ymin-=1;ymax+=1;}
+  if(yZero) ymin=Math.min(ymin,0);
+  ymin-=(ymax-ymin)*.05; ymax+=(ymax-ymin)*.05;
+  const X=i=>pad+(W-2*pad)*(x[i]-x[0])/(x[x.length-1]-x[0]||1);
+  const Y=v=>H-pad-(H-2*pad)*(v-ymin)/(ymax-ymin||1);
+  for(let g=0;g<3;g++){
+    const y=pad+(H-2*pad)*g/2;
+    const ln=document.createElementNS('http://www.w3.org/2000/svg','line');
+    ln.setAttribute('x1',pad*1.5);ln.setAttribute('x2',W-pad/2);ln.setAttribute('y1',y);ln.setAttribute('y2',y);
+    ln.setAttribute('stroke','#2a3040');ln.setAttribute('stroke-width','0.15');el.appendChild(ln);
+    const t=document.createElementNS('http://www.w3.org/2000/svg','text');
+    t.setAttribute('x',0);t.setAttribute('y',y+1);t.setAttribute('fill','#8b93a7');
+    t.setAttribute('font-size','2.4');t.textContent=Math.round(ymax-(ymax-ymin)*g/2);el.appendChild(t);
+  }
+  series.forEach(s=>poly(el, x.map((xv,i)=>[X(i),Y(s.data[i])]), s.color, s.w||1.2));
+}
+function drawBars(svgId, values){
+  const el=$(svgId); el.innerHTML='';
+  const W=100,H=40,n=values.length||10,pad=2,bw=(W-12)/n;
+  values.forEach((v,i)=>{
+    const bh=(v/100)*(H-8);
+    const r=document.createElementNS('http://www.w3.org/2000/svg','rect');
+    r.setAttribute('x',3+i*bw);r.setAttribute('y',H-2-bh);r.setAttribute('width',bw*.7);
+    r.setAttribute('height',bh);r.setAttribute('rx','1');
+    r.setAttribute('fill',v>=85?'#34d399':v>=60?'#fbbf24':'#f87171');el.appendChild(r);
+    const t=document.createElementNS('http://www.w3.org/2000/svg','text');
+    t.setAttribute('x',3+i*bw+bw*.35);t.setAttribute('y',H-3);t.setAttribute('fill','#8b93a7');
+    t.setAttribute('font-size','2.6');t.setAttribute('text-anchor','middle');t.textContent=i;el.appendChild(t);
+  });
+}
+function pixToCanvas(canvas, px){  // px: 28x28 嵌套数组
+  const ctx=canvas.getContext('2d'); canvas.width=28; canvas.height=28;
+  const img=ctx.createImageData(28,28);
+  for(let r=0;r<28;r++)for(let c=0;c<28;c++){
+    const v=Math.min(255,Math.max(0,px[r][c]));
+    const i=(r*28+c)*4; img.data[i]=v;img.data[i+1]=v;img.data[i+2]=v;img.data[i+3]=255;
+  }
+  ctx.putImageData(img,0,0);
+}
+function fmToCanvas(canvas, fm){  // fm: 14x14 嵌套数组
+  const ctx=canvas.getContext('2d'); canvas.width=14; canvas.height=14;
+  const img=ctx.createImageData(14,14);
+  for(let r=0;r<14;r++)for(let c=0;c<14;c++){
+    const v=Math.min(255,Math.max(0,fm[r][c]));
+    const i=(r*14+c)*4; img.data[i]=v;img.data[i+1]=v;img.data[i+2]=v;img.data[i+3]=255;
+  }
+  ctx.putImageData(img,0,0);
+}
+
+// ---------------- 主渲染 ----------------
+function render(s){
+  const st=s.status||'idle';
+  $('dot').className='dot '+(st==='running'?'running':st==='paused'?'paused':st==='done'?'done':'idle');
+  $('statusTxt').textContent=STATUS[st]||st;
+
+  // KPI + 进度
+  $('kLoss').textContent=fmt(s.train_loss_cur);
+  $('kEpoch').textContent=s.epoch_current+' / '+s.epoch_total;
+  $('kStep').textContent=s.step;
+  const acc=s.epochs_val_acc; $('kAcc').textContent=acc.length?acc[acc.length-1].toFixed(2)+'%':'—';
+  $('kTime').textContent=fmtTime(s.elapsed_sec)+(s.eta_sec?' / '+fmtTime(s.eta_sec):'');
+  const pct=s.epoch_total?100*Math.min(s.epoch_current,s.epoch_total)/s.epoch_total:0;
+  $('pbar').style.width=pct+'%';
+  $('pEpoch').textContent=(s.epoch_current||0)+' / '+(s.epoch_total||0);
+  $('pPct').textContent=pct.toFixed(0)+'%';
+
+  // 正在发生什么的文字
+  $('teachProgress').innerHTML = st==='running'
+    ? `正在 <b>Epoch ${s.epoch_current||0}/${s.epoch_total||0}</b>，已走 <b>${s.step||0}</b> 步（每轮约 ${s.steps_per_epoch||'?'} 步）。
+       正在把训练集第 ${s.epoch_current||0} 遍完整看一遍。`
+    : st==='done'?'训练完成。看看最终准确率，或去「调参实验室」换个参数再玩。':STATUS[st];
+  if(s.train_loss_cur!==null)
+    $('teachLoss').innerHTML=`当前 loss=<b>${(+s.train_loss_cur).toFixed(4)}</b>。
+        看它是不是整体<b>往下走</b>？往下走=模型在进步。数字越小，说明模型越"确定"自己的判断。`;
+
+  // 曲线（loss 降采样）
+  const N=600, stepX=Math.max(1,Math.floor(s.loss_history.length/Math.max(N,1)));
+  const x=[],raw=[],smooth=[];
+  for(let k=0;k<s.loss_history.length;k+=stepX){
+    x.push(s.loss_steps[k]||k); raw.push(s.loss_history[k]);
+    smooth.push(s.smooth_loss&&s.smooth_loss[k]!=null?s.smooth_loss[k]:null);
+  }
+  if(x.length>1){
+    drawChart('lossChart', x.slice(-N), [
+      {data:raw.slice(-N),color:'#54607a'},{data:smooth.slice(-N),color:'#4f8cff',w:1.6}]);
+    if(acc.length) drawChart('accChart', acc.map((_,i)=>i+1), [
+      {data:s.epochs_train_acc||[],color:'#34d399',w:1.6},{data:acc,color:'#fbbf24',w:1.6}], false);
+  }
+
+  // 每类准确率（放进准确率卡片下方一行小柱图）
+  drawBars('accBars', s.class_acc.length?s.class_acc:Array(10).fill(0));
+
+  // 特征图（每轮才变，用版本号去抖动，避免每 0.7s 全量重绘）
+  if(s.fmaps && s.fmaps.length && s.fmaps_version !== lastFmapsVer){
+    const box=$('fmaps'); box.innerHTML='';
+    (s.fmaps||[]).forEach((fm,k)=>{
+      const d=document.createElement('div'); d.className='fcell';
+      const cv=document.createElement('canvas'); cv.width=14; cv.height=14; fmToCanvas(cv,fm);
+      const small=document.createElement('small'); small.textContent='核 '+(k+1);
+      d.appendChild(cv); d.appendChild(small); box.appendChild(d);
+    });
+    lastFmapsVer = s.fmaps_version;
+  }
+
+  // Softmax 概率条（用第一张样例）
+  if(s.samples && s.samples.length){
+    const sm=s.samples[0];
+    $('smaxTitle').textContent = `· 这张图的真实数字是 ${sm.true}，模型 ${sm.correct?'判断正确':'判断错了'}：猜成 ${sm.pred}（${(sm.prob*100).toFixed(1)}%）`;
+    const box=$('smax'); box.innerHTML='';
+    (Array.isArray(sm.probs)?sm.probs:[0,0,0,0,0,0,0,0,0,0]).forEach((p,k)=>{
+      const row=document.createElement('div'); row.className='srow'+(k===sm.true?' true':'');
+      const t=document.createElement('span'); t.className='tagk'; t.textContent=k;
+      const bb=document.createElement('div'); bb.className='barbox';
+      const b=document.createElement('div'); b.className='bar'; b.style.width=(p*100)+'%'; bb.appendChild(b);
+      const pc=document.createElement('span'); pc.className='pct'; pc.textContent=(p*100).toFixed(1)+'%';
+      row.appendChild(t); row.appendChild(bb); row.appendChild(pc); box.appendChild(row);
+    });
+  }
+
+  // 预测样例网格
+  if(s.samples && s.samples.length){
+    $('sampleNote').textContent='· 共 '+s.samples.length+' 张验证样例';
+    const box=$('samples'); box.innerHTML='';
+    s.samples.forEach(sm=>{
+      const d=document.createElement('div'); d.className='sample '+(sm.correct?'correct':'wrong');
+      const cv=document.createElement('canvas'); cv.width=28; cv.height=28; pixToCanvas(cv, sm.pixels);
+      const lb=document.createElement('div'); lb.className='lab';
+      const cls = sm.correct?'c':'w';
+      lb.innerHTML='实 <b>'+sm.true+'</b> · 预 <b class="'+cls+'">'+(sm.correct?sm.true:sm.pred)+'</b> '+
+          '<span style="color:var(--muted)">'+(sm.prob*100).toFixed(0)+'%</span>';
+      d.appendChild(cv); d.appendChild(lb); box.appendChild(d);
+    });
+  }
+
+  // 日志（只在新内容时整段重绘）
+  if(s.log){
+    const key=s.log.join('|');
+    if(key!==lastLogKey){ lastLogKey=key; $('log').innerHTML=(s.log||[]).map(l=>l.replace(/&/g,'&amp;').replace(/</g,'&lt;')).join('<br>'); }
+    const lg=$('log'); lg.scrollTop=lg.scrollHeight;
+  }
+  last=s;
+}
+let lastLogKey='';
+
+// 顶部导航锚点平滑滚动（CSS 已做，无需 JS）
+
+// ---------------- 轮询 ----------------
+setInterval(async()=>{
+  try{ render(await (await fetch('/api/state')).json()); }
+  catch(e){ $('statusTxt').textContent=(document.readyState==='complete')?'连接中…':'连接失败'; }
+},700);
+
+// 初加载：画几张原始数字图 + 首拉状态
+document.addEventListener('DOMContentLoaded',()=>{
+  const box=$('digits');
+  const labels=[];
+  for(let n=0;n<10;n++){
+    const c=document.createElement('div'); c.className='cell';
+    c.innerHTML='<canvas width="28" height="28"></canvas><div></div>';
+    labels.push(c.lastElementChild);
+    box.appendChild(c);
+  }
+  fetch('/api/state').then(r=>r.json()).then(s=>{
+    // 用样本像素画"认识数据"区的数字，并把标签设为该样本的真实数字
+    const cvs=box.querySelectorAll('canvas');
+    if(s.samples && s.samples.length){
+      s.samples.slice(0,10).forEach((it,i)=>{
+        if(cvs[i]){ pixToCanvas(cvs[i], it.pixels); if(labels[i]) labels[i].textContent=it.true; }
+      });
+    }
+    render(s);
+  }).catch(()=>{});
+});
+</script>
+</body>
+</html>
