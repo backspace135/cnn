@@ -1,0 +1,163 @@
+/* 课程讲义：只作用于 article.lesson；训练和预测页面由各自样式负责。 */
+.lesson { min-width: 0; animation: lesson-enter .32s ease-out both; }
+@keyframes lesson-enter { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+.lesson > header {
+  position: relative;
+  overflow: hidden;
+  margin-bottom: 25px;
+  padding: clamp(26px, 5vw, 48px);
+  border-radius: 18px;
+  background: #203a46;
+  color: #fffefa;
+}
+.lesson > header::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 5px;
+  background: linear-gradient(90deg, var(--yellow) 0 24%, var(--teal) 24% 100%);
+}
+.lesson > header::after {
+  content: "";
+  position: absolute;
+  right: -48px;
+  bottom: -88px;
+  width: 210px;
+  height: 210px;
+  border: 1px solid #ffffff33;
+  border-radius: 50%;
+  pointer-events: none;
+}
+.lesson > header h1, .lesson > h1 {
+  max-width: 19ch;
+  margin: 0 0 12px;
+  font-size: clamp(28px, 4vw, 43px);
+  font-weight: 800;
+  letter-spacing: -.035em;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+.lesson > header :is(p, small) { max-width: 62ch; color: #e1ebe9; line-height: 1.75; }
+.lesson > header p:last-child { margin-bottom: 0; }
+.lesson > header a { color: #ffe2a2; }
+.lesson > h1 { color: var(--text); }
+.lesson > p { max-width: 72ch; }
+
+.lesson-step {
+  position: relative;
+  min-width: 0;
+  margin-bottom: 19px;
+  padding: clamp(20px, 3vw, 32px);
+  border: 1px solid var(--line);
+  border-radius: 15px;
+  background: var(--panel);
+  box-shadow: 0 7px 20px #20313e09;
+  scroll-margin-top: 98px;
+}
+.lesson-step[data-step]::before {
+  content: attr(data-step);
+  position: absolute;
+  top: 23px;
+  right: clamp(20px, 3vw, 32px);
+  color: var(--teal);
+  font: 700 12px/1.5 var(--mono);
+  letter-spacing: .06em;
+}
+.lesson-step > h2, .lesson-step > header h2 {
+  max-width: 38ch;
+  margin: 0 0 16px;
+  padding-right: 55px;
+  color: var(--text);
+  font-size: clamp(21px, 2.5vw, 28px);
+  font-weight: 800;
+  letter-spacing: -.025em;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+.lesson-step :is(h3, h4) { margin: 24px 0 10px; color: var(--text); line-height: 1.5; }
+.lesson-step h3 { font-size: 18px; }
+.lesson-step h4 { font-size: 16px; }
+.lesson :is(p, li, dd) { max-width: 72ch; line-height: 1.85; overflow-wrap: anywhere; }
+.lesson :is(p, ul, ol, dl) { margin-block: 0 16px; }
+.lesson :is(ul, ol) { padding-left: 1.5em; }
+.lesson li + li { margin-top: 7px; }
+.lesson li::marker { color: var(--teal); font-weight: 800; }
+.lesson strong { color: var(--text); font-weight: 800; }
+.lesson :is(code, kbd) { padding: .1em .3em; border-radius: 4px; background: var(--panel2); font: .87em/1.6 var(--mono); overflow-wrap: anywhere; }
+.lesson pre { max-width: 100%; margin: 20px 0; padding: 17px; overflow-x: auto; border-radius: 9px; background: #203a46; color: #fffefa; font: 13px/1.65 var(--mono); }
+.lesson pre code { padding: 0; background: none; color: inherit; }
+.lesson blockquote { margin: 19px 0; padding: 12px 18px; border-left: 4px solid var(--teal); background: var(--teal-soft); color: var(--text); }
+.lesson blockquote > :last-child { margin-bottom: 0; }
+.lesson figure { max-width: 100%; margin: 20px 0; }
+.lesson figcaption { margin-top: 7px; color: var(--muted); font-size: 13px; }
+.lesson :is(details, fieldset) { max-width: 100%; margin: 17px 0; padding: 14px 18px; border: 1px solid var(--line); border-radius: 10px; }
+.lesson summary { min-height: 44px; cursor: pointer; font-weight: 700; }
+.lesson :is(label, legend) { font-weight: 700; }
+.lesson :is(input:not([type="checkbox"]):not([type="radio"]), select, textarea) {
+  min-height: 44px;
+  padding: 9px 11px;
+  border: 1px solid #aeb9b7;
+  border-radius: 8px;
+  background: #fff;
+}
+.lesson textarea { width: 100%; }
+.lesson :is(.table-scroll, .matrix-scroll) { max-width: 100%; overflow-x: auto; }
+.lesson table { border-collapse: collapse; margin: 17px 0; font-size: 14px; }
+.lesson :is(th, td) { padding: 10px 12px; border: 1px solid var(--line); text-align: left; }
+.lesson th { background: var(--teal-soft); }
+
+/* 小实验可独立滚动，宽矩阵不会撑宽课程正文。 */
+.lesson .activity-host {
+  max-width: 100%;
+  min-width: 0;
+  margin: 22px 0;
+  padding: clamp(14px, 3vw, 22px);
+  overflow-x: auto;
+  border: 1px solid #a6cfc4;
+  border-radius: 12px;
+  background: #f1f8f4;
+}
+.lesson .activity-host :is(.pixel-grid, .matrix-grid, .activity-grid) {
+  display: grid;
+  gap: 3px;
+  grid-template-columns: repeat(var(--columns, 5), minmax(0, 1fr));
+  width: min(100%, 360px);
+}
+.lesson .activity-host :is(.pixel-cell, .matrix-cell, .grid-cell) {
+  display: grid;
+  min-width: 0;
+  aspect-ratio: 1;
+  place-items: center;
+  border: 1px solid #b6c8c3;
+  border-radius: 5px;
+  background: var(--panel);
+  color: var(--text);
+  font: 700 clamp(11px, 2vw, 16px)/1 var(--mono);
+}
+.lesson .activity-host :is(.pixel-grid, .matrix-grid, .activity-grid):has(button) { width: max-content; grid-template-columns: repeat(var(--columns, 5), 44px); }
+.lesson .activity-host :is(.pixel-grid, .matrix-grid, .activity-grid) button {
+  min-width: 44px;
+  min-height: 44px;
+  padding: 0;
+  border-radius: 5px;
+}
+.lesson .activity-host :is(.active, .selected, [aria-pressed="true"]):is(.pixel-cell, .matrix-cell, .grid-cell, button) {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+.lesson .step-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-top: 24px; padding-top: 20px; border-top: 1px solid var(--line); }
+.lesson .answer-feedback { margin: 16px 0 0; padding: 12px 15px; border: 1px solid #a6cfc4; border-radius: 9px; background: var(--teal-soft); color: #145b54; font-weight: 600; overflow-wrap: anywhere; }
+.lesson .answer-feedback:is(.incorrect, .is-incorrect, [data-result="incorrect"], [data-state="incorrect"]) { border-color: #e4b2a8; background: #fff1eb; color: var(--red); }
+.lesson .answer-feedback:is(.correct, .is-correct, [data-result="correct"], [data-state="correct"]) { border-color: #a6cfc4; background: var(--teal-soft); color: #145b54; }
+
+@media (max-width: 600px) {
+  .lesson > header { border-radius: 13px; }
+  .lesson-step { border-radius: 12px; scroll-margin-top: 78px; }
+  .lesson-step[data-step]::before { top: 19px; }
+  .lesson-step > h2, .lesson-step > header h2 { padding-right: 47px; }
+  .lesson .step-controls button { flex: 1 1 130px; }
+}
+@media (prefers-reduced-motion: reduce) { .lesson { animation: none; } }

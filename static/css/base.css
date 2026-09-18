@@ -1,0 +1,70 @@
+/* 全站基础：延续旧课程的暖白、橙色和青色；组件样式留在各自文件。 */
+:root {
+  color-scheme: light;
+  --bg: #f7f4ed;
+  --panel: #fffefa;
+  --panel2: #f2ede4;
+  --line: #ded8cd;
+  --text: #20313e;
+  --muted: #53616b;
+  --accent: #b8412b;
+  --accent-hover: #95321f;
+  --accent-soft: #fcece5;
+  --teal: #176d64;
+  --teal-soft: #e7f3ef;
+  --yellow: #f2bd4b;
+  --red: #a7352d;
+  --mono: "Cascadia Code", Consolas, monospace;
+  --font-body: "Trebuchet MS", "Microsoft YaHei UI", "PingFang SC", sans-serif;
+  --focus: #176d64;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body {
+  min-width: 0;
+  margin: 0;
+  background: radial-gradient(circle at 95% 0, #e7f3ef 0, transparent 27rem), var(--bg);
+  color: var(--text);
+  font: 16px/1.75 var(--font-body);
+  -webkit-font-smoothing: antialiased;
+}
+[hidden] { display: none !important; }
+:where(img, svg, canvas) { max-width: 100%; }
+a { color: var(--teal); text-underline-offset: .2em; }
+a:hover { color: var(--accent); }
+:where(button, input, select, textarea) { font: inherit; }
+button {
+  min-height: 44px;
+  padding: 9px 18px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--panel);
+  color: var(--text);
+  font-weight: 700;
+  cursor: pointer;
+  transition: background-color .18s ease, border-color .18s ease, color .18s ease, box-shadow .18s ease;
+}
+button:hover:not(:disabled) { border-color: var(--teal); background: var(--teal-soft); }
+button:active:not(:disabled) { box-shadow: inset 0 2px 4px #20313e22; }
+button:disabled { opacity: .55; cursor: not-allowed; }
+button.primary, button[data-variant="primary"] {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: #fff;
+}
+button.primary:hover:not(:disabled), button[data-variant="primary"]:hover:not(:disabled) {
+  border-color: var(--accent-hover);
+  background: var(--accent-hover);
+}
+:where(a, button, input, select, textarea, summary, [tabindex]):focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: 3px;
+}
+:where(input, select, textarea) { max-width: 100%; color: var(--text); }
+::selection { background: #f2bd4b88; color: var(--text); }
+
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
+}

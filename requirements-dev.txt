@@ -1,0 +1,2 @@
+# 仅供独立浏览器冒烟测试使用；运行依赖仍由 install.bat 安装到 libs/。
+playwright>=1.55,<2

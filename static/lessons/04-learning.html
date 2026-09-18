@@ -1,0 +1,57 @@
+<article class="lesson" data-lesson="04">
+  <header>
+    <p>第 04 课 · 学会调整权重</p>
+    <h1>从一次小计算到真实训练</h1>
+    <p>神经元是网络中的一个小计算单元，不是生物细胞。先看一个可手算的权重怎样变化，再认识真实训练的循环；不用先学微积分。</p>
+  </header>
+  <section class="lesson-step" data-step="04-1">
+    <h2>1. 用权重给输入打分</h2>
+    <p class="goal">目标：知道权重是可以调整的乘数，偏置是最后额外加上的数。</p>
+    <p class="example">具体例子：输入为 <code>2</code> 和 <code>3</code>，分别乘权重 <code>0.5</code> 和 <code>−0.25</code>，再加偏置 <code>0.1</code>，结果是 <code>2 × 0.5 + 3 × (−0.25) + 0.1 = 0.35</code>；负权重表示减小分数，不表示图片错误。</p>
+    <p class="guess">先猜：若只把第二个权重改成 <code>0</code>，结果比 <code>0.35</code> 大还是小？</p>
+    <p class="action">动手：在纸上或计算器里算 <code>2 × 0.5 + 3 × 0 + 0.1</code>，与原来的 <code>0.35</code> 比较；不用运行程序。</p>
+    <div class="lesson-feedback" role="status" aria-live="polite">核对：新结果 <code>1.1</code>，比 <code>0.35</code> 大，因为不再减去 <code>0.75</code>。</div>
+    <p class="retell">复述：输入先乘各自的权重，再相加并加偏置；权重改变，分数也可能改变。</p>
+    <p class="next">下一步：量一量预测和目标差多少。</p>
+  </section>
+  <section class="lesson-step" data-step="04-2">
+    <h2>2. 一个可手算的错误</h2>
+    <p class="goal">目标：认识损失（用一个数表示预测有多不合适），不把损失与准确率（猜对图片数除以总图片数）混为一谈。</p>
+    <p class="example">具体例子：为了看清单个权重，暂时不用前一课的 ReLU，而用简单预测 <code>= 权重 × 输入</code>。权重 <code>1</code>、输入 <code>2</code>、目标 <code>4</code> 时，预测 <code>2</code>，平方误差（差值乘自己）<code>(2 − 4) × (2 − 4) = 4</code>；权重若改为 <code>1.5</code>，预测 <code>3</code>，误差 <code>(3 − 4) × (3 − 4) = 1</code>。真实数字分类使用不同的损失规则，不是这道玩具算式。</p>
+    <p class="guess">先猜：新预测仍没等于 <code>4</code>，它的误差能否已经下降？</p>
+    <p class="action">动手：分别在纸上计算 <code>1 × 2</code> 与 <code>1.5 × 2</code>，把每个结果减去 <code>4</code> 后再乘自身；比较得到的 <code>4</code> 和 <code>1</code>。</p>
+    <div class="lesson-feedback" role="status" aria-live="polite">核对：可以；损失从 <code>4</code> 降为 <code>1</code>，即使预测 <code>3</code> 还不等于目标 <code>4</code>。</div>
+    <p class="retell">复述：误差是一个可以比较大小的数，不能直接读成“猜对了几张图片”。</p>
+    <p class="next">下一步：让一个权重走一小步。</p>
+  </section>
+  <section class="lesson-step" data-step="04-3">
+    <h2>3. 改权重，比较误差</h2>
+    <p class="goal">目标：亲自改一次权重 <code>w</code>（一个可调整的乘数），重新算预测和误差，比较哪次更接近目标。</p>
+    <p class="example">具体例子：输入 <code>2</code>、目标 <code>4</code>，预测 <code>= w × 2</code>。当 <code>w = 1</code> 时，预测 <code>2</code>、平方误差 <code>(2 − 4) × (2 − 4) = 4</code>；试 <code>w = 1.5</code>，预测 <code>3</code>、误差 <code>1</code>；试 <code>w = 0.5</code>，预测 <code>1</code>、误差 <code>9</code>。这只是用来比较的玩具数字，并非真实分类的计算规则。</p>
+    <p class="guess">先猜：在 <code>0.5</code> 和 <code>1.5</code> 两个权重里，本例哪个让误差更小？</p>
+    <p class="action">动手：先在纸上分别算 <code>0.5 × 2</code> 与 <code>1.5 × 2</code>，再算各自与目标 <code>4</code> 的差值乘自身；如果互动区已加载，改变其中的权重，先猜后比较它显示的预测与误差。还可以运行 <code>python examples/02_neuron_and_gradient.py</code> 看进阶计算，但不是必做题。</p>
+    <div data-activity="weight-step" aria-label="改变权重并比较预测误差互动区"></div>
+    <div data-quiz aria-label="比较权重误差自测">
+      <p>自测：本例中 <code>w = 1.5</code> 与 <code>w = 0.5</code>，谁的平方误差更小？</p>
+      <button type="button" data-correct="true" data-explanation="答对了：1.5 的预测是 3，误差为 1；0.5 的预测是 1，误差为 9。">1.5</button>
+      <button type="button" data-correct="false" data-explanation="再算：0.5 × 2 = 1，离目标 4 差 3，平方误差为 9；1.5 的误差仅为 1。">0.5</button>
+    </div>
+    <div class="lesson-feedback" role="status" aria-live="polite">核对：这次试出的 <code>w = 1.5</code> 比 <code>w = 0.5</code> 更接近目标；一次比较不能保证所有权重变化都会让误差变小。</div>
+    <p class="retell">复述：先改一个权重，再重新计算预测和误差，用数字比较，而不是猜哪个权重“看起来更大”。</p>
+    <p class="next">下一步：看看真实训练怎样重复“预测、比答案、调权重”。</p>
+  </section>
+  <section class="lesson-step" data-step="04-4">
+    <h2>4. 进入真实训练</h2>
+    <p class="goal">目标：看懂真实训练反复做“看图片 → 给分数 → 对答案 → 调权重”，不用背程序指令。</p>
+    <p class="example">具体例子：batch（批）是一次送进模型的一小组图；一批 <code>64</code> 张，连续两批处理约 <code>64 + 64 = 128</code> 张。模型为每张图输出数字 <code>0</code> 到 <code>9</code> 的 <code>10</code> 个分数；处理一批并更新一次权重叫一步，看完所选训练图片一遍叫一轮（epoch）。和第 3 步不同，真实分类会用适合十个数字的损失规则量错误。</p>
+    <p class="guess">先猜：看完第一批 <code>64</code> 张后，模型就一定能猜对以后每一张图吗？</p>
+    <p class="action">动手：若还没有 <code>data/mnist.npz</code>，先在项目文件夹另开一个命令窗口，运行 <code>python download_data.py</code> 并等待“[完成]”；首次下载需联网。然后打开 <a href="#/training">训练实践</a>，点击“开始训练”，观察模型多轮猜测、对照正确答案和调整权重；<code>cpu</code> 是电脑的中央处理器，即使没有显卡也可以运行，耗时因电脑而异。</p>
+    <div class="lesson-feedback" role="status" aria-live="polite">核对：一批只是训练过程中的一小步，并不能保证以后每张都猜对；没下载数据时仍可读前面的课，但真实训练须先有 <code>data/mnist.npz</code>。</div>
+    <p class="retell">复述：真实训练要有带答案的图片，反复预测、比较和调整；看到的准确率不是预先保证的目标。</p>
+    <details>
+      <summary>选修：想对照最小训练脚本的五个程序名</summary>
+      <p>可运行 <code>python examples/04_minimal_training.py --epochs 1 --max-samples 512 --device cpu</code> 看小样本示范；它的成绩不代表完整训练。程序每批按 <code>zero_grad → forward → loss → backward → step</code> 执行：清除旧的梯度（权重的调整方向）、算预测、量错误、算这次调整方向、更新权重。这是程序的写法，不是继续学下一课的前提。</p>
+    </details>
+    <p class="next">下一课 <a href="#/learn/05">05：把训练、验证和最后测试分清楚</a>。</p>
+  </section>
+</article>

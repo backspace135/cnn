@@ -1,0 +1,67 @@
+<link rel="stylesheet" href="/static/css/training.css">
+<section class="training" aria-labelledby="trainingTitle">
+  <header class="training-intro">
+    <p class="training-kicker">动手实践 · 从观察开始</p>
+    <h1 id="trainingTitle">看着模型学会认数字</h1>
+    <p>先按“开始训练”，观察错误怎样减少；训练每看完一批图片就会调整一次。这里不需要先懂公式。</p>
+    <ol><li>先看训练状态和损失：损失表示预测离正确答案有多远。</li><li>再看验证准确率：验证图片不参与参数更新。</li><li>最后试着只改一个参数，再比较实验记录。</li></ol>
+  </header>
+  <div id="notice" class="training-notice" role="alert" hidden></div>
+  <section class="training-panel" aria-labelledby="controlTitle">
+    <h2 id="controlTitle">第一步 · 启动并观察</h2>
+    <p id="status" role="status" aria-live="polite">正在连接训练服务…</p>
+    <p id="dataset">尚未读到图片数据？先按“开始使用”课程准备 MNIST，完成后返回这里。</p>
+    <div class="training-actions">
+      <button type="button" data-action="start" class="training-primary">开始训练</button>
+      <button type="button" data-action="resume" hidden>继续训练</button>
+      <button type="button" data-action="pause" disabled>暂停</button>
+      <button type="button" data-action="stop" disabled>停止</button>
+      <button type="button" data-action="reset">恢复默认并重训</button>
+    </div>
+    <p id="progress">还没有训练记录。开始后会显示轮数和进度。</p>
+    <progress id="progressBar" max="100" value="0" aria-label="训练总体进度"></progress>
+    <div class="training-metrics">
+      <p>当前损失 <strong id="loss">—</strong></p><p>验证准确率 <strong id="accuracy">—</strong></p>
+      <p>已用 / 预计剩余 <strong id="time">—</strong></p><p>训练设备 <strong id="deviceLabel">检测中…</strong></p>
+    </div>
+  </section>
+  <section class="training-panel" aria-labelledby="chartTitle">
+    <h2 id="chartTitle">第二步 · 看变化</h2>
+    <p>损失整体降低，通常表示模型越来越接近正确答案。验证准确率可以帮你检查它能否认出没参与训练的图片。</p>
+    <div class="training-charts">
+      <div><h3>损失曲线 · 越低越好</h3><p class="training-key">浅色：每批损失 · 深色：平滑损失</p><svg id="lossChart" viewBox="0 0 480 210" role="img" aria-label="训练损失随更新步数的变化"></svg></div>
+      <div><h3>准确率 · 越高越好</h3><p class="training-key">浅色：训练集 · 深色：验证集</p><svg id="accChart" viewBox="0 0 480 210" role="img" aria-label="训练和验证准确率随轮数的变化"></svg></div>
+      <div><h3>每个数字的验证准确率</h3><svg id="accBars" viewBox="0 0 480 180" role="img" aria-label="数字 0 到 9 各自的验证准确率"></svg></div>
+    </div>
+    <details><summary>按数值查看曲线与各数字准确率</summary><div id="chartTable" class="training-scroll">开始训练后显示数据表。</div></details>
+  </section>
+  <section class="training-panel" aria-labelledby="resultsTitle">
+    <h2 id="resultsTitle">第三步 · 看模型怎样判断</h2>
+    <p>特征图中亮的区域表示某个卷积核在这里响应较强；不能简单地把每张图都解释成某个固定形状。</p>
+    <h3>第一层卷积特征图</h3><div id="fmaps" class="training-fmaps">完成一轮训练后显示。</div>
+    <h3>第一张样例的十类预测</h3><p id="smaxTitle">完成一轮训练后显示概率；最高分也不保证一定正确。</p><div id="smax" class="training-probs"></div>
+    <h3>验证集样例</h3><div id="samples" class="training-samples">图片数据加载后显示样例；预测结果要等训练一轮。</div>
+    <details><summary>验证集混淆矩阵 · 哪些数字容易认错</summary><p>行是真实数字，列是模型预测的数字；对角线越集中越好。</p><div id="confusionMatrix" class="training-scroll" role="region" aria-label="验证集混淆矩阵" tabindex="0">完成一轮训练后显示。</div></details>
+    <h3>独立测试 · 最终考试</h3><p id="testResult">完整训练后才评估独立测试集；不要反复用这个分数挑参数。</p>
+  </section>
+  <section class="training-panel" id="settings" tabindex="-1" aria-labelledby="settingsTitle">
+    <h2 id="settingsTitle">想再试一次？每次只改变一个条件</h2>
+    <p>下面是训练前定好的“旋钮”。修改后点“应用参数并重新训练”，旧训练将停止，模型从头开始学习。</p>
+    <div class="training-fields">
+      <label>训练轮数 Epochs <input id="epochs" type="number" min="1" max="30" step="1" value="6" required><small>把训练图片完整看几遍。</small></label>
+      <label>学习率 lr <input id="lr" type="number" min="0.0001" max="0.1" step="0.0001" value="0.001" required><small>每次调整走多大的步子。</small></label>
+      <label>每批图片 Batch Size <input id="batch" type="number" min="16" max="512" step="16" value="64" required><small>看多少张图片后调整一次。</small></label>
+      <label>丢弃率 Dropout <input id="dropout" type="number" min="0" max="0.7" step="0.05" value="0.3" required><small>训练时随机暂时忽略部分神经元。</small></label>
+      <label>训练设备 <select id="device"><option value="auto">自动选择（优先 GPU）</option><option value="cpu">CPU</option><option value="cuda" disabled>CUDA · NVIDIA GPU</option></select><small id="deviceHint">正在检测可用设备…</small></label>
+    </div>
+    <div class="training-actions"><button type="button" class="training-primary" data-action="apply">应用参数并重新训练</button><span id="settingsMessage" role="status"></span></div>
+    <div class="training-history"><h3>本机实验记录 · 仅包含完整结束的运行</h3><p>比较验证结果，不用独立测试集选参数。新完成的记录可能稍后出现；若没看到本次运行，可点“刷新实验记录”。</p><button type="button" data-action="refresh-history">刷新实验记录</button><div id="experimentHistory" class="training-scroll" role="region" aria-label="实验记录" tabindex="0">暂无完整运行。</div></div>
+  </section>
+  <section class="training-panel" aria-labelledby="advancedTitle">
+    <h2 id="advancedTitle">进阶 · 模型结构与本地存档</h2>
+    <details><summary>查看模型每一层</summary><div id="modelLayers" class="training-scroll">正在读取模型结构…</div></details>
+    <p>保存已训练模型，或加载本地存档用于识别；加载不等于接着上次的训练继续。</p>
+    <div class="training-actions"><button type="button" data-action="save">保存模型</button><button type="button" data-action="load">加载本地模型</button></div>
+  </section>
+  <details class="training-panel"><summary>训练日志 · 排查错误时查看</summary><div id="log" class="training-log">等待训练开始…</div></details>
+</section>

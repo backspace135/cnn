@@ -1,0 +1,43 @@
+<article class="lesson" data-lesson="05">
+  <header>
+    <p>第 05 课 · 评估与错例</p>
+    <h1>练习题、检查题、最后考试</h1>
+    <p>模型在训练中会改变权重。要判断它是否也能处理没练过的图片，必须分开记录训练、验证和测试的结果；不保证某次运行达到固定准确率。</p>
+  </header>
+  <section class="lesson-step" data-step="05-1">
+    <h2>1. 三组图片分工不同</h2>
+    <p class="goal">目标：区分训练集（更新权重）、验证集（每轮观察并选择设置）与测试集（确定方案后才看最终成绩）。</p>
+    <p class="example">具体例子：MNIST 有 <code>60,000</code> 张原训练来源图片和独立的 <code>10,000</code> 张测试图片。本项目从前者按每种数字划出约 <code>6,000</code> 张用于验证，余下约 <code>54,000</code> 张训练；<code>54,000 + 6,000 = 60,000</code>。原测试集的 <code>10,000</code> 张没有被混入这两组。</p>
+    <p class="guess">先猜：验证图片如果也用来更新权重，还能当作“没练过的题”检查吗？</p>
+    <p class="action">动手：画三个方框，分别写“约 54,000 / 约 6,000 / 10,000”，将“更新权重 / 每轮检查与选设置 / 完整训练结束后的最终评估”分别填入对应方框。</p>
+    <div class="lesson-feedback" role="status" aria-live="polite">核对：只有训练集用于权重更新；验证集帮助观察或选参数；测试集留到完整训练结束。反复按测试成绩调参会让最终考试失去独立性。</div>
+    <p class="retell">复述：验证不是另一轮训练，测试也不能当验证集反复使用。</p>
+    <p class="next">下一步：从对错数字中算准确率，再找到具体错题。</p>
+  </section>
+  <section class="lesson-step" data-step="05-2">
+    <h2>2. 数对了几张、错在了哪里</h2>
+    <p class="goal">目标：会算准确率，能读懂混淆矩阵（按真实答案和预测答案计数的错题表）。</p>
+    <p class="example">具体例子：<code>10</code> 张验证图里猜对 <code>7</code> 张，准确率 <code>7 ÷ 10 = 70%</code>，另有 <code>3</code> 张猜错。混淆矩阵的行是真实数字、列是预测数字：如果“真实 3”这一行有 <code>4</code> 张猜成 3、<code>1</code> 张猜成 8，那个 <code>1</code> 表示一张错图，不是 1% 的概率。</p>
+    <p class="guess">先猜：真实是 <code>3</code>、预测是 <code>8</code> 的错题，应找标成“真实 3、预测 8”的格子，还是“真实 8、预测 3”的格子？</p>
+    <p class="action">动手：先手算 <code>7 ÷ 10</code>；互动区只用于对照示意的训练准确率与验证准确率，试着说出哪一组更高。上面的“真实 3、预测 8”错例请在纸上标出；想看真实运行产生的错例，再打开 <a href="#/training">训练实践</a> 的混淆矩阵（行是真实数字、列是预测数字），不要误以为这里的示意互动区能查格子。</p>
+    <div data-activity="evaluation" aria-label="训练和验证准确率示意对照互动区"></div>
+    <div data-quiz aria-label="准确率自测">
+      <p>自测：十张图猜对七张，准确率是多少？</p>
+      <button type="button" data-correct="true" data-explanation="答对了：7 ÷ 10 = 70%，另外三张猜错。">70%</button>
+      <button type="button" data-correct="false" data-explanation="用猜对张数除以总张数：7 ÷ 10 = 70%。">30%</button>
+    </div>
+    <div class="lesson-feedback" role="status" aria-live="polite">核对：准确率是 <code>70%</code>；在“真实 3”行与“预测 8”列的交点找错例。</div>
+    <p class="retell">复述：准确率是猜对张数除以总张数；错题表能显示哪些数字容易互相认错。</p>
+    <p class="next">下一步：把屏幕上的训练与验证读数放回正确的条件里。</p>
+  </section>
+  <section class="lesson-step" data-step="05-3">
+    <h2>3. 谨慎解释一次真实成绩</h2>
+    <p class="goal">目标：知道损失、训练准确率、验证准确率和最终测试准确率各自能说明什么。</p>
+    <p class="example">具体例子：若本轮验证准确率为 <code>82%</code>，表示这次验证约每 <code>100</code> 张有 <code>82</code> 张猜对；这不保证以后你写的每 <code>100</code> 张也能猜对 <code>82</code> 张。损失是模型预测与答案差距的另一种计算结果，不是“猜对比例”。训练准确率来自权重不断变化的各批，验证准确率来自轮末固定权重且关闭 Dropout（训练时随机置零部分中间输出的操作）的评估模式，两者不是同一时刻、同一模式的严格对照。</p>
+    <p class="guess">先猜：训练损失比上轮低，能保证本轮验证准确率一定上升吗？</p>
+    <p class="action">动手：打开 <a href="#/training">训练实践</a>，确认已在第 04 课准备好 <code>data/mnist.npz</code> 后启动或观察一次训练，记录一轮的训练损失、验证准确率；若出现错例，也记下一个。完整训练结束后才读最终测试结果。若图表尚空，先核对数据是否已下载、训练是否已启动。</p>
+    <div class="lesson-feedback" role="status" aria-live="polite">核对：不能保证；观察到的成绩受数据、设置和运行环境影响。一两次波动不足以证明模型一定变好或一定过拟合（只记住练习题、对新题表现差）。</div>
+    <p class="retell">复述：训练集用于学习，验证集用于每轮检查，测试集用于最后考试；报告成绩时只说“本次观察到……”。</p>
+    <p class="next">下一课 <a href="#/learn/06">06：画自己的数字，再只改一个设置做实验</a>。</p>
+  </section>
+</article>
