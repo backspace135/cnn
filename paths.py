@@ -10,11 +10,18 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent
 LIBS = ROOT / "libs"
+CUDA_LIBS = ROOT / "libs-cuda"
 
-if LIBS.is_dir():
-    for p in [LIBS, ROOT]:
+if LIBS.is_dir() or CUDA_LIBS.is_dir():
+    # CUDA builds also support CPU; prefer the optional CUDA installation.
+    # Do not shadow a working CPU installation with an incomplete download.
+    search_paths = [LIBS]
+    if (CUDA_LIBS / "torch" / "__init__.py").is_file():
+        search_paths.append(CUDA_LIBS)
+    search_paths.append(ROOT)
+    for p in search_paths:
         sp = str(p)
-        if sp not in sys.path:
+        if p.is_dir() and sp not in sys.path:
             sys.path.insert(0, sp)
     # 模型权重、torch 缓存放到项目目录下，保持自包含
     os.environ.setdefault("TORCH_HOME", str(ROOT / "data" / "torch_cache"))

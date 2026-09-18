@@ -1,92 +1,171 @@
 # -*- coding: utf-8 -*-
-"""
-手写数字识别 —— 训练可视化 & 机器学习学习 Web 服务器 (Flask)
+"""本地教学服务器：只负责把 Trainer 的状态和操作转换成 HTTP。
 
-职责只有两件事：
-  1. 把 trainer 后台训练产生的实时状态 (self.state) 通过 JSON 暴露出去；
-  2. 把浏览器请求转发成"控制训练"的动作（开始/暂停/继续/重置/调参）。
-
-为什么用一个独立 web 层？
-  —— 让"训练(后端)"和"展示(前端)"彻底解耦：以后换模型、换数据集、
-     甚至换 GPU 服务器，网页面板一行都不用改。
-
-接口：
-  GET  /               学习型可视化面板 (static/index.html)
-  GET  /api/state      当前训练状态 (JSON)，浏览器每 0.7s 轮询一次
-  POST /api/control    {"action": "start"|"pause"|"resume"|"reset"|"configure",
-                        ...可选的超参：epochs/lr/batch_size/dropout}
+创建 Flask app 不会读取 MNIST；首次训练/查询才构造 Trainer。这样缺少数据时
+网页仍能打开并显示明确的准备步骤，单元测试也不需要下载完整数据。
 """
 import os
+import pickle
+import zipfile
 from pathlib import Path
 
-import paths  # noqa: F401  注入 libs/ 里的 torch
-
+import paths  # noqa: F401  保留项目内 libs/ 的导入优先级
 from flask import Flask, jsonify, request, send_from_directory
-from train import Trainer
+from train import DATA_FILE, Trainer, hardware_info
 
 ROOT = Path(__file__).resolve().parent
 STATIC = ROOT / "static"
 PORT = int(os.environ.get("PORT", "5000"))
-
-app = Flask(__name__)
-trainer = Trainer()
+trainer = None  # 兼容现有代码与测试；正常运行时按需构造
 
 
-# ------------------------------------------------------------------ 学习面板页
-@app.route("/")
-def index():
-    """返回学习型可视化面板页面。"""
-    return send_from_directory(STATIC, "index.html")
+class ApiError(Exception):
+    def __init__(self, code, message, status=400):
+        self.code, self.message, self.status = code, message, status
+        super().__init__(message)
 
 
-# ------------------------------------------------------------------ 读取实时状态
-@app.route("/api/state")
-def api_state():
-    """返回训练实时状态快照（浏览器轮询这个接口）。"""
-    return jsonify(trainer.snapshot())
+def create_app(injected_trainer=None):
+    app = Flask(__name__)
+    app.config["MAX_CONTENT_LENGTH"] = 64 * 1024
+    instance = injected_trainer
+
+    def get_trainer():
+        nonlocal instance
+        global trainer
+        if injected_trainer is None and trainer is not None:
+            return trainer
+        if instance is None:
+            try:
+                instance = Trainer()
+                trainer = instance
+            except (FileNotFoundError, ValueError, OSError, EOFError, zipfile.BadZipFile) as exc:
+                raise ApiError("data_unavailable", f"无法读取 MNIST：{exc}。请运行 download_data.py。", 503) from exc
+        return instance
+
+    @app.errorhandler(ApiError)
+    def handle_api_error(exc):
+        return jsonify({"ok": False, "msg": exc.message,
+                        "error": {"code": exc.code, "message": exc.message}}), exc.status
+
+    @app.errorhandler(413)
+    def too_large(_):
+        return jsonify({"ok": False, "msg": "请求体过大。",
+                        "error": {"code": "request_too_large", "message": "请求体过大。"}}), 413
+
+    def json_object():
+        if not request.is_json:
+            raise ApiError("invalid_json", "请求内容必须是 JSON 对象。")
+        value = request.get_json(silent=True)
+        if not isinstance(value, dict):
+            raise ApiError("invalid_json", "请求内容必须是 JSON 对象。")
+        return value
+
+    @app.get("/")
+    def index():
+        return send_from_directory(STATIC, "index.html")
+
+    @app.get("/api/health")
+    def health():
+        try:
+            t = get_trainer()
+            snapshot = t.snapshot()
+            return jsonify({"ok": True, "data_available": True,
+                            "dataset_sizes": snapshot["dataset_sizes"],
+                            "device": str(t.device), "status": snapshot["status"],
+                            "hardware": snapshot["hardware"]})
+        except ApiError as exc:
+            return jsonify({"ok": False, "data_available": False,
+                            "message": exc.message, "hardware": hardware_info()}), 503
+
+    @app.get("/api/state")
+    def state():
+        return jsonify(get_trainer().snapshot())
+
+    @app.post("/api/control")
+    def control():
+        body = json_object()
+        action = body.get("action")
+        allowed = {"action", "epochs", "lr", "batch_size", "dropout", "device_mode"}
+        if set(body) - allowed:
+            raise ApiError("invalid_field", "请求包含未知字段。")
+        hyper = {k: body[k] for k in allowed - {"action"} if k in body}
+        if any(value is None for value in hyper.values()):
+            raise ApiError("invalid_parameter", "训练参数不能为 null。")
+        if action not in {"start", "pause", "resume", "stop", "reset", "configure"}:
+            raise ApiError("invalid_action", f"未知 action: {action}")
+        if hyper and action not in {"reset", "configure"}:
+            raise ApiError("invalid_field", "只有 reset/configure 可以指定训练参数。")
+        t = get_trainer()
+        try:
+            with t.control_lock:
+                if action == "start":
+                    t.start()
+                elif action == "pause":
+                    t.pause()
+                elif action == "resume":
+                    t.resume()
+                elif action == "stop":
+                    t.stop()
+                elif action == "reset":
+                    t.reset(**hyper)
+                    t.start()  # 保持原页面的“应用参数并重训”行为
+                else:
+                    t.configure(**hyper)
+        except (ValueError, TypeError) as exc:
+            raise ApiError("invalid_parameter", str(exc)) from exc
+        except RuntimeError as exc:
+            raise ApiError("invalid_state", str(exc), 409) from exc
+        snapshot = t.snapshot()
+        return jsonify({"ok": True, "status": snapshot["status"],
+                        "generation": snapshot["generation"]})
+
+    @app.get("/api/model-info")
+    def model_info():
+        return jsonify({"ok": True, **get_trainer().model_info()})
+
+    @app.get("/api/experiments")
+    def experiments():
+        return jsonify({"ok": True, "experiments": get_trainer().experiments()})
+
+    @app.post("/api/predict")
+    def predict():
+        body = json_object()
+        if set(body) != {"pixels"}:
+            raise ApiError("invalid_pixels", "请提供 pixels 28×28 数字矩阵。")
+        try:
+            result = get_trainer().predict(body["pixels"])
+        except ValueError as exc:
+            raise ApiError("invalid_pixels", str(exc)) from exc
+        return jsonify({"ok": True, **result})
+
+    @app.post("/api/model")
+    def model_file():
+        body = json_object()
+        if set(body) != {"action"} or body["action"] not in ("save", "load"):
+            raise ApiError("invalid_action", "action 必须为 save 或 load。")
+        t = get_trainer()
+        try:
+            path = t.save_model() if body["action"] == "save" else t.load_model()
+        except FileNotFoundError as exc:
+            raise ApiError("model_missing", str(exc), 404) from exc
+        except (ValueError, TypeError, KeyError, OSError, EOFError, pickle.UnpicklingError) as exc:
+            raise ApiError("invalid_model", "本地模型文件损坏或版本不兼容。") from exc
+        except RuntimeError as exc:
+            raise ApiError("invalid_state", str(exc), 409) from exc
+        return jsonify({"ok": True, "model": Path(path).name, "status": t.snapshot()["status"]})
+
+    return app
 
 
-# ------------------------------------------------------------------ 控制训练
-@app.route("/api/control", methods=["POST"])
-def api_control():
-    """
-    根据请求体里的 action 控制训练：
-      start     启动/继续训练
-      pause     暂停
-      resume    继续
-      reset     按给定超参重建模型并从头开始训练
-      configure 只更新超参配置，不重建（下次 reset 生效）
-    """
-    data = request.get_json(silent=True) or {}
-    action = data.get("action", "")
+app = create_app()
 
-    # reset 时允许带上要改的超参（网页"调参实验室"用）
-    hyper = {k: data[k] for k in ("epochs", "lr", "batch_size", "dropout")
-             if k in data}
-
-    if action == "start":
-        trainer.start()
-    elif action == "pause":
-        trainer.pause()
-    elif action == "resume":
-        trainer.resume()
-    elif action == "reset":
-        trainer.reset(**hyper)      # 重建并自动开始
-        trainer.start()
-    elif action == "configure":
-        trainer.configure(**hyper)  # 只改配置，等 reset 生效
-    else:
-        return jsonify({"ok": False, "msg": f"未知 action: {action}"}), 400
-    return jsonify({"ok": True, "status": trainer.snapshot()["status"]})
-
-
-# ------------------------------------------------------------------ 启动
 if __name__ == "__main__":
-    print("=" * 64)
-    print("  手写数字识别 | 训练可视化 & 机器学习学习面板")
-    print(f"  请在浏览器打开:  http://127.0.0.1:{PORT}")
-    print("  训练自动开始；页面顶部可控制 开始/暂停/重置/调参")
-    print("=" * 64)
-    trainer.start()  # 自动开始训练，让面板一打开就能看到实时过程
-    # threaded=True 让 /api/state 与训练线程并行，不会互相阻塞
+    print(f"CNN 入门课：http://127.0.0.1:{PORT}")
+    print("浏览器中点击“开始训练”；可用 AUTO_TRAIN=1 启动演示自动训练。")
+    if os.environ.get("AUTO_TRAIN") == "1":
+        with app.test_client() as client:
+            response = client.post("/api/control", json={"action": "start"})
+            if response.status_code != 200:
+                print("自动训练未启动：", response.get_json().get("msg"))
     app.run(host="127.0.0.1", port=PORT, threaded=True, debug=False)

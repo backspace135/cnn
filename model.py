@@ -20,6 +20,7 @@
     -> Linear(3136->128) -> ReLU -> Dropout
     -> Linear(128->10)                        -> 10 个分数
 """
+import torch
 import torch.nn as nn
 
 
@@ -35,6 +36,10 @@ class HandwritingCNN(nn.Module):
         hidden:     全连接层的隐藏神经元数量（代表模型的"抽象能力"）。
         """
         super().__init__()
+        if isinstance(dropout_p, bool) or not isinstance(dropout_p, (int, float)) or not 0 <= dropout_p < 1:
+            raise ValueError("dropout_p 必须在 [0,1) 范围内。")
+        if isinstance(hidden, bool) or not isinstance(hidden, int) or hidden <= 0:
+            raise ValueError("hidden 必须是正整数。")
 
         # =================================================================
         # 第一部分：特征提取器（卷积 + 池化）
@@ -107,6 +112,32 @@ class HandwritingCNN(nn.Module):
         输出形状 (1, 32, 28, 28)，即 32 张特征图，每张 28x28。
         """
         return self.features[0:3](x)
+
+    def describe_layers(self):
+        """用模型本身的一次前向计算层形状，避免手抄尺寸和实际代码漂移。"""
+        names = {0: "卷积 1", 1: "BatchNorm 1", 2: "ReLU 1", 3: "池化 1",
+                 4: "卷积 2", 5: "BatchNorm 2", 6: "ReLU 2", 7: "池化 2"}
+        rows, handles = [], []
+        def register(module, label):
+            def capture(layer, _inputs, output):
+                rows.append({"layer": label, "shape": list(output.shape),
+                             "parameters": sum(p.numel() for p in layer.parameters(recurse=False))})
+            handles.append(module.register_forward_hook(capture))
+        for index, layer in enumerate(self.features):
+            register(layer, names[index])
+        for index, layer in enumerate(self.classifier):
+            register(layer, ["展平", "全连接 1", "ReLU 3", "Dropout", "全连接 2"][index])
+        device = next(self.parameters()).device
+        was_training = self.training
+        try:
+            self.eval()
+            with torch.no_grad():
+                self(torch.zeros(1, 1, 28, 28, device=device))
+        finally:
+            for handle in handles:
+                handle.remove()
+            self.train(was_training)
+        return rows
 
     def summary(self):
         """打印模型参数量（学习时可直观感受网络规模）。"""

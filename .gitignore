@@ -6,9 +6,13 @@ venv/
 
 # Locally installed dependencies and downloaded MNIST data
 /libs/
+/libs-cuda/
 /data/
 
 # Local environment configuration
 .env
 .env.*
 !.env.example
+
+# Temporary isolated agent worktrees
+/.claude/worktrees/
