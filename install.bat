@@ -14,7 +14,8 @@ echo [2/2] Installing CPU PyTorch into libs...
 python -m pip install torch --index-url https://download.pytorch.org/whl/cpu --target libs --upgrade
 if errorlevel 1 goto failed
 echo.
-echo Dependencies installed. Next run: python download_data.py
+echo Dependencies installed. Next run: start.bat
+echo Before training: python download_data.py
 pause
 exit /b 0
 :failed

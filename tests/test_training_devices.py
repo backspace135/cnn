@@ -43,13 +43,18 @@ class DeviceTests(unittest.TestCase):
 
     def test_cuda_unavailable_preserves_existing_model_and_config(self):
         trainer = self.make_trainer()
+        trainer.configure(epochs=2)
         before = trainer.snapshot()['config'].copy()
+        pending = trainer._pending_config.copy()
         model = trainer.model
         with patch('torch.cuda.is_available', return_value=False):
             with self.assertRaisesRegex(ValueError, 'CUDA'):
                 trainer.reset(epochs=1, device_mode='cuda')
+            with self.assertRaisesRegex(ValueError, 'CUDA'):
+                trainer.configure(device_mode='cuda')
         self.assertIs(trainer.model, model)
         self.assertEqual(trainer.snapshot()['config'], before)
+        self.assertEqual(trainer._pending_config, pending)
 
     def test_unknown_mode_is_rejected(self):
         trainer = self.make_trainer()

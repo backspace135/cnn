@@ -1,0 +1,43 @@
+<article class="lesson" data-lesson="02">
+  <header>
+    <p>第 02 课 · 局部图案</p>
+    <h1>用小窗口找图片里的线索</h1>
+    <p>卷积是在图片的一小块上重复使用同一组数字做计算的办法。先算出一个格子，再移动窗口，最后用池化缩小表格；只需乘法、加法和比较大小。</p>
+  </header>
+  <section class="lesson-step" data-step="02-1">
+    <h2>1. 亲手算卷积的第一格</h2>
+    <p class="goal">目标：理解卷积核是带权重（可调整的乘数）的小窗口，输出的第一格只来自图片左上角的一小块。</p>
+    <p class="example">具体例子：互动区固定的 <code>3 × 3</code> 输入是 <code>[1 2 0; 0 1 0; 1 0 1]</code>，卷积核是 <code>[1 0 −1; 0 1 0; 1 0 0]</code>。对应位置相乘并相加，第一格输出为 <code>1×1 + 2×0 + 0×(−1) + 0×0 + 1×1 + 0×0 + 1×1 + 0×0 + 1×0 = 3</code>；这只是用于练习的小表格，不是真实照片。</p>
+    <p class="guess">先猜：只把输入中心的 <code>1</code> 改为 <code>0</code>，第一格输出会变为多少？</p>
+    <p class="action">动手：在纸上抄下互动区两张 <code>3 × 3</code> 表格，逐格写出九次乘法再求和；在互动区按提示观察这组固定示例的计算。这里采用 PyTorch（本项目运行神经网络使用的程序包）的约定，卷积核不翻转。</p>
+    <div data-activity="convolution" aria-label="卷积第一格逐项乘加互动区"></div>
+    <div class="lesson-feedback" role="status" aria-live="polite">核对：第一格是 <code>3</code>；若输入中心的 <code>1</code> 换成 <code>0</code>，少了 <code>1×1</code>，所以变为 <code>2</code>。互动区暂不可用也能手算。</div>
+    <p class="retell">复述：一个输出格子由当前位置覆盖的图片格子和卷积核逐项相乘再相加得到。</p>
+    <p class="next">下一步：用同一组权重算其他位置。</p>
+  </section>
+  <section class="lesson-step" data-step="02-2">
+    <h2>2. 移动窗口，不换计算规则</h2>
+    <p class="goal">目标：知道步长是窗口每次移动的格数，填充是在边缘补格子。</p>
+    <p class="example">具体例子：对 <code>5 × 5</code> 图片用 <code>3 × 3</code> 核，步长 <code>1</code>、不填充时，一行可放 <code>5 − 3 + 1 = 3</code> 次，一列也是 <code>3</code> 次，输出共 <code>3 × 3 = 9</code> 格。若四周补 <code>1</code> 圈零，边长成了 <code>7</code>，一行便有 <code>7 − 3 + 1 = 5</code> 个输出格。</p>
+    <p class="guess">先猜：移到下一格时，是重新生成九个核权重，还是继续用刚才那九个？</p>
+    <p class="action">动手：在纸上画 <code>5 × 5</code> 格，分别圈出左上角和向右移动一格后的 <code>3 × 3</code> 范围；数出一行能放几次。先只掌握默认的步长 <code>1</code>、填充 <code>0</code>；若想继续探索，可返回上一步，在互动区的 <code>4 × 4</code> 例子里一次只改一个步长或填充值，点“重新计算”观察输出；两道题的图片尺寸不同，不能直接比较输出格数。</p>
+    <div data-quiz aria-label="卷积权重共享自测">
+      <p>自测：扫描下一格时，核权重需要换一组吗？</p>
+      <button type="button" data-correct="false" data-explanation="不同位置继续使用同一组权重，这叫权重共享。">每格换一组</button>
+      <button type="button" data-correct="true" data-explanation="答对了：同一组权重在图片多个位置重复使用。">使用同一组</button>
+    </div>
+    <div class="lesson-feedback" role="status" aria-live="polite">核对：同一组权重反复使用叫权重共享；各位置算出的数排成特征图（一张记录哪里对这组权重响应较大的数表）。</div>
+    <p class="retell">复述：每一格只看一个局部小块，同一个窗口移动到其他位置继续计算。</p>
+    <p class="next">下一步：将计算出的表格压缩。</p>
+  </section>
+  <section class="lesson-step" data-step="02-3">
+    <h2>3. 池化：每块只留最大数</h2>
+    <p class="goal">目标：理解最大池化是不学习新权重、只在小块里挑最大值的缩小方法。</p>
+    <p class="example">具体例子：<code>2 × 2</code> 小块 <code>[1 3; 2 0]</code> 中最大的是 <code>3</code>，所以池化后这一块输出 <code>3</code>。一个 <code>28 × 28</code> 的表格若按互不重叠的 <code>2 × 2</code> 小块池化，每边变为 <code>28 ÷ 2 = 14</code> 格。</p>
+    <p class="guess">先猜：只把小块中的 <code>1</code> 改成 <code>2</code>，输出 <code>3</code> 会变吗？</p>
+    <p class="action">动手：画一个 <code>4 × 4</code> 表格，分成四块，依次填 <code>[1 3; 2 0]</code>、<code>[4 0; 1 2]</code>、<code>[0 1; 0 2]</code>、<code>[5 2; 1 0]</code>，每块只记最大数。如果已安装程序，可在项目文件夹运行 <code>python examples/03_convolution_and_pooling.py</code> 看另一个例子，无须下载 MNIST。</p>
+    <div class="lesson-feedback" role="status" aria-live="polite">核对：四块输出依次是 <code>3、4、2、5</code>；把第一个块中的 <code>1</code> 改成 <code>2</code>，最大值仍是 <code>3</code>。</div>
+    <p class="retell">复述：卷积用同一组可调整权重在各处做乘加；池化不调权重，只留下每块最大的值。</p>
+    <p class="next">下一课 <a href="#/learn/03">03：把局部扫描、池化和打分连成网络</a>。</p>
+  </section>
+</article>

@@ -1,0 +1,47 @@
+<article class="lesson" data-lesson="01">
+  <header>
+    <p>第 01 课 · 图片与数字</p>
+    <h1>电脑怎样“看”一个手写数字</h1>
+    <p>不需要会画画或编程：先把一张小图片当成方格纸，再用四则运算把格子的明暗变成数字。</p>
+  </header>
+  <section class="lesson-step" data-step="01-1">
+    <h2>1. 一个格子就是一个像素</h2>
+    <p class="goal">目标：知道像素是图片上的一个小格子，灰度值是描述它有多亮的数字。</p>
+    <p class="example">具体例子：灰度值 <code>0</code> 是黑，<code>255</code> 是白，<code>128</code> 大约是中间亮度；一张 <code>28 × 28</code> 的图有 <code>28 × 28 = 784</code> 个格子。MNIST 是带着“正确数字”答案的手写图片集合，通常是黑底、较亮的笔画。</p>
+    <p class="guess">先猜：一个灰度值为 <code>0</code> 的格子和一个值为 <code>255</code> 的格子，哪个更亮？</p>
+    <p class="action">动手：先在纸上画一个 2 行 2 列的方格，填入 <code>0、255 / 128、0</code>；把 0 的格子涂黑，255 的格子留白，128 的格子涂成中间亮度。下一步再看电脑如何把这些数缩到 0～1。</p>
+    <div class="lesson-feedback" role="status" aria-live="polite">核对：<code>255</code> 更亮；纸上的四个格子已经是一张很小的数字图片。</div>
+    <p class="retell">复述：图片不是电脑理解的“一个数字”，而是许多像素值排成的表格。</p>
+    <p class="next">下一步：把 0 到 255 的数字换成更容易计算的范围。</p>
+  </section>
+  <section class="lesson-step" data-step="01-2">
+    <h2>2. 把明暗缩到 0 到 1</h2>
+    <p class="goal">目标：用除法理解归一化——按同一比例缩放数值，保留明暗顺序。</p>
+    <p class="example">具体例子：把每个灰度值除以 <code>255</code>：<code>0 ÷ 255 = 0</code>，<code>255 ÷ 255 = 1</code>，<code>128 ÷ 255 ≈ 0.502</code>。<code>≈</code> 表示四舍五入后的约数；这不是把较亮的格子变暗，而是换一把尺子。</p>
+    <p class="guess">先猜：原来的 <code>51</code> 缩放后是 <code>0.2</code>、<code>0.5</code>，还是 <code>1</code>？</p>
+    <p class="action">动手：在纸上或 Windows“计算器”里算 <code>51 ÷ 255</code>。再点击下方小方格，把值从 <code>0</code>（黑）切换到 <code>0.5</code>（灰）和 <code>1</code>（白），观察旁边数字表怎样同步变化；互动区显示的是<strong>已经缩放后的值</strong>，不是让你输入 51。</p>
+    <div data-activity="pixels" aria-label="0 到 1 的像素明暗互动区"></div>
+    <div data-quiz aria-label="灰度归一化自测">
+      <p>自测：灰度值 <code>51</code> 除以 <code>255</code> 后是多少？</p>
+      <button type="button" data-correct="true" data-explanation="答对了：51 ÷ 255 = 0.2。">0.2</button>
+      <button type="button" data-correct="false" data-explanation="再算一次：51 ÷ 255 = 0.2；0.5 对应大约 128。">0.5</button>
+    </div>
+    <div class="lesson-feedback" role="status" aria-live="polite">核对：<code>51 ÷ 255 = 0.2</code>；缩放后的值仍在 <code>0</code> 到 <code>1</code> 之间。</div>
+    <p class="retell">复述：归一化是每个格子除以同一个数，这里是 255，并不改变格子的排列。</p>
+    <p class="next">下一步：看电脑怎样记录一张图或一组图的尺寸。</p>
+  </section>
+  <section class="lesson-step" data-step="01-3">
+    <h2>3. 一张图片与多张图片</h2>
+    <p class="goal">目标：记住一张图是 <code>28 × 28</code> 格；多张图只是把这样的图片放在一起。</p>
+    <p class="example">具体例子：一张图有 <code>28 × 28 = 784</code> 个像素；两张同样大小的图共有 <code>2 × 784 = 1568</code> 个像素，但每张仍是 <code>28 × 28</code>，不会变成一张更宽的图。</p>
+    <p class="guess">先猜：放入 <code>2</code> 张图后，每张图会从 <code>28 × 28</code> 自动变成 <code>56 × 28</code> 吗？</p>
+    <p class="action">动手：在纸上画两个独立的 <code>2 × 2</code> 小方格，数数是“两张、每张四格”，还是“一张八格”；若已安装依赖，可在项目文件夹运行 <code>python examples/01_pixels_and_tensors.py</code>，无需下载 MNIST。</p>
+    <div class="lesson-feedback" role="status" aria-live="polite">核对：仍是两张各 <code>28 × 28</code> 的图；总共 <code>1568</code> 个像素，并不是把两张拼成一张。</div>
+    <p class="retell">复述：增加图片张数，不会改变单张图片的高、宽或像素含义。</p>
+    <details>
+      <summary>选修：程序如何用四个数字记住一组图</summary>
+      <p>张量是按固定尺寸排列的一组数字。程序把两张灰度图记作 <code>(2, 1, 28, 28)</code>：依次是图片张数、每张图的通道数、高、宽。通道是记录一种颜色信息的一层表格；灰度图只有 <code>1</code> 层。暂时记不住这四个数也可以继续下一课。</p>
+    </details>
+    <p class="next">下一课 <a href="#/learn/02">02：先算出卷积的第一格，再尝试池化</a>。</p>
+  </section>
+</article>

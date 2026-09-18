@@ -2,6 +2,7 @@
 import gzip
 import struct
 import tempfile
+import threading
 import unittest
 from pathlib import Path
 from unittest.mock import patch
@@ -108,6 +109,37 @@ class LearningApiTests(unittest.TestCase):
         self.assertTrue(self.trainer.model.training)
         self.assertTrue(torch.equal(before, self.trainer.model.features[1].running_mean))
 
+    def test_predict_preserves_weights_and_original_mode(self):
+        pixels = [[0.0] * 28 for _ in range(28)]
+        pixels[14][14] = 1.0
+        model = self.trainer.model
+        before = {key: value.clone() for key, value in model.state_dict().items()}
+        for training in (True, False):
+            with self.subTest(training=training):
+                model.train(training)
+                result = self.trainer.predict(pixels)
+                self.assertEqual(len(result['probs']), 10)
+                self.assertEqual(model.training, training)
+                for key, value in before.items():
+                    self.assertTrue(torch.equal(model.state_dict()[key], value), key)
+        model.train()
+        with patch.object(model, 'forward', side_effect=RuntimeError('inference failed')):
+            with self.assertRaisesRegex(RuntimeError, 'inference failed'):
+                self.trainer.predict(pixels)
+        self.assertTrue(model.training)
+
+    def test_predict_rejects_bad_pixels_without_changing_model(self):
+        pixels = [[0.0] * 28 for _ in range(28)]
+        model = self.trainer.model
+        for bad in (pixels, pixels[:27], [[0] * 3], [[True] * 28] * 28,
+                    [[float('nan')] * 28] * 28, [[float('inf')] * 28] * 28,
+                    [[1.1] * 28] * 28, 'not pixels'):
+            with self.subTest(bad=repr(bad)[:40]), self.assertRaises(ValueError):
+                self.trainer.predict(bad)
+        self.assertIs(self.trainer.model, model)
+        self.assertTrue(model.training)
+        self.assertEqual(self.trainer.snapshot()['generation'], 0)
+
     def test_training_final_test_and_save_load_roundtrip(self):
         self.trainer.reset(epochs=1, device_mode='cpu')
         self.trainer.start()
@@ -133,6 +165,30 @@ class LearningApiTests(unittest.TestCase):
         self.assertEqual(before, self.trainer.predict(pixels)['probs'])
         self.assertTrue(self.trainer.predict(pixels)['trained'])
 
+    def test_done_is_published_before_experiment_history_is_saved(self):
+        entered = threading.Event()
+        release = threading.Event()
+        original = self.trainer.record_experiment
+
+        def delayed_record():
+            entered.set()
+            if not release.wait(timeout=10):
+                raise TimeoutError('实验记录等待超时')
+            original()
+
+        with patch.object(self.trainer, 'record_experiment', side_effect=delayed_record):
+            self.trainer.reset(epochs=1, device_mode='cpu')
+            self.trainer.start()
+            self.assertTrue(entered.wait(timeout=20), '训练应在完成时开始记录实验')
+            try:
+                self.assertEqual(self.trainer.snapshot()['status'], 'done')
+                self.assertEqual(self.trainer.experiments(), [])
+            finally:
+                release.set()
+            self.trainer._thread.join(timeout=30)
+        self.assertEqual(self.trainer.snapshot()['status'], 'done')
+        self.assertEqual(len(self.trainer.experiments()), 1)
+
     def test_corrupt_model_does_not_replace_current_model(self):
         self.trainer.model_file.parent.mkdir(parents=True, exist_ok=True)
         self.trainer.model_file.write_bytes(b'not a checkpoint')
@@ -140,6 +196,25 @@ class LearningApiTests(unittest.TestCase):
         response = self.client.post('/api/model', json={'action': 'load'})
         self.assertEqual(response.status_code, 400)
         self.assertIs(self.trainer.model, old_model)
+
+    def test_invalid_checkpoint_payload_keeps_model_and_state(self):
+        self.trainer.configure(epochs=2)
+        model = self.trainer.model
+        optimizer = self.trainer.optimizer
+        state = self.trainer.snapshot()
+        pending = self.trainer._pending_config.copy()
+        config = state['config']
+        for payload in ({'version': 1, 'config': config},
+                        {'version': 1, 'config': config, 'state_dict': {}}):
+            with self.subTest(payload=payload):
+                self.trainer.model_file.parent.mkdir(parents=True, exist_ok=True)
+                torch.save(payload, self.trainer.model_file)
+                with self.assertRaises(ValueError):
+                    self.trainer.load_model()
+                self.assertIs(self.trainer.model, model)
+                self.assertIs(self.trainer.optimizer, optimizer)
+                self.assertEqual(self.trainer.snapshot(), state)
+                self.assertEqual(self.trainer._pending_config, pending)
 
     def test_app_without_data_serves_course_and_reports_missing_data(self):
         with patch.object(server, 'trainer', None), \

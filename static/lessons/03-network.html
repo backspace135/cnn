@@ -1,0 +1,47 @@
+<article class="lesson" data-lesson="03">
+  <header>
+    <p>第 03 课 · 组合网络</p>
+    <h1>从图片走到十个分数</h1>
+    <p>CNN（卷积神经网络）把上一课的局部扫描、缩小表格和最终打分接成一条路。本课只跟着尺寸走，不要求读懂程序代码。</p>
+  </header>
+  <section class="lesson-step" data-step="03-1">
+    <h2>1. 两轮卷积与池化</h2>
+    <p class="goal">目标：分清“有几张数表”与“每张数表有多大”。</p>
+    <p class="example">具体例子：一张 <code>28 × 28</code> 灰度图片有 <code>1</code> 个通道（1 张数表）。第一组 <code>32</code> 个卷积核得到 <code>32</code> 张 <code>28 × 28</code> 特征图（各位置的计算结果），池化后每张变成 <code>14 × 14</code>；第二组卷积得到 <code>64</code> 张 <code>14 × 14</code> 表格，再池化成 <code>64</code> 张 <code>7 × 7</code> 表格。卷积在边缘补一圈零，维持每张表格的宽高。</p>
+    <p class="guess">先猜：第二次池化后是 <code>64</code> 张 <code>7 × 7</code>，还是 <code>7</code> 张 <code>64 × 64</code>？</p>
+    <p class="action">动手：画“张数 / 高 / 宽”三列，依次填写 <code>1 / 28 / 28</code>、<code>32 / 28 / 28</code>、<code>32 / 14 / 14</code>、<code>64 / 14 / 14</code>、<code>64 / 7 / 7</code>，在纸上核对尺寸；互动区可切换示意分数，帮助观察“输入到预测”，它不提供逐层尺寸点击。</p>
+    <div data-activity="network" aria-label="输入到预测的示意分数互动区"></div>
+    <div class="lesson-feedback" role="status" aria-live="polite">核对：结果为 <code>64</code> 张 <code>7 × 7</code>；池化改变每张图的尺寸，不等于把 64 张变成 7 张。</div>
+    <p class="retell">复述：卷积产生多张计算结果，池化把每张表格的宽高从 28 缩为 14、再缩为 7。</p>
+    <p class="next">下一步：把多张表格排成一列。</p>
+  </section>
+  <section class="lesson-step" data-step="03-2">
+    <h2>2. 展平后为十个数字打分</h2>
+    <p class="goal">目标：认识展平（把数表排成一列）和全连接层（让每个输入都参与输出打分）。</p>
+    <p class="example">具体例子：<code>64 × 7 × 7 = 3136</code> 个数展平后，第一层把这些数合成 <code>128</code> 个新数，最后一层给 <code>0</code> 到 <code>9</code> 各一个分数，共 <code>10</code> 个。原始分数叫 logits，例如数字 <code>3</code> 是 <code>2</code> 分、数字 <code>8</code> 是 <code>1</code> 分，只表示前者当前分数更高；<code>2</code> 分不是 <code>2%</code>。</p>
+    <p class="guess">先猜：<code>64</code> 张 <code>7 × 7</code> 表格展平后有 <code>49</code>、<code>448</code>，还是 <code>3136</code> 个数？</p>
+    <p class="action">动手：先算 <code>7 × 7</code>，再乘 <code>64</code>；在纸上列出数字 <code>0</code> 至 <code>9</code>，数一数有几个输出。若想对照程序，可用记事本打开项目文件 <code>model.py</code>，找 <code>Flatten</code> 和最后的 <code>Linear</code>。</p>
+    <div data-quiz aria-label="原始分数自测">
+      <p>自测：数字 3 的原始分数是 2，能读成“概率 2%”吗？</p>
+      <button type="button" data-correct="false" data-explanation="原始分数不是百分比；展示时才另行转换为概率估计。">能</button>
+      <button type="button" data-correct="true" data-explanation="答对了：原始类别分数不能直接当作概率。">不能</button>
+    </div>
+    <div class="lesson-feedback" role="status" aria-live="polite">核对：<code>7 × 7 = 49</code>，<code>49 × 64 = 3136</code>；最高分可作为预测，但不保证正确。</div>
+    <p class="retell">复述：前半段找局部线索，后半段把线索合成十个数字的原始分数。</p>
+    <p class="next">下一步：观察为什么最高分和显示的概率都不保证答对。</p>
+  </section>
+  <section class="lesson-step" data-step="03-3">
+    <h2>3. 分数高，也可能猜错</h2>
+    <p class="goal">目标：沿着“图片 → 十个分数 → 一个预测”这条主线，记住概率只是模型的估计。</p>
+    <p class="example">具体例子：若模型把数字 <code>3</code> 排在第一，展示为 <code>70%</code>，数字 <code>8</code> 为 <code>20%</code>，其他数字合计 <code>10%</code>，这些百分比总和是 <code>100%</code>；但即使显示 <code>70%</code>，它仍可能把真实的 <code>8</code> 猜错成 <code>3</code>。</p>
+    <p class="guess">先猜：最高一栏是 <code>70%</code>，就能保证这张图的真实数字是它吗？</p>
+    <p class="action">动手：在纸上写 <code>70 + 20 + 10 = 100</code>，然后另外写一行“真实答案”和“模型猜测”；如果两者不同，就标为猜错，不能只看最高的百分比。</p>
+    <div class="lesson-feedback" role="status" aria-live="polite">核对：百分比合计 <code>100%</code>，但最高值不是正确保证；真正是否猜对，要拿预测与已知的真实答案比较。</div>
+    <p class="retell">复述：模型先给十个数字打分，挑最高分做预测；展示的概率不是绝对把握。</p>
+    <details>
+      <summary>选修：想进一步读懂 model.py 里的几个名字</summary>
+      <p>ReLU 把负数改为 <code>0</code>、正数保持不变，如 <code>[−2, 3] → [0, 3]</code>。BatchNorm 用一批数的统计量整理中间数值；Dropout 在训练时随机让部分中间输出暂时为零，评估时关闭。Softmax 把十个原始分数转换成总和为 <code>1</code> 的概率估计，供展示使用。训练用的交叉熵损失（比较十个原始分数与正确答案差距的规则）直接接收原始分数，不必先手动转成概率。这些名字现在不用背，会算出分数、会核对预测即可继续。</p>
+    </details>
+    <p class="next">下一课 <a href="#/learn/04">04：从玩具权重更新走进真实训练</a>。</p>
+  </section>
+</article>

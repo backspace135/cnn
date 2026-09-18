@@ -1,0 +1,31 @@
+<link rel="stylesheet" href="/static/css/prediction.css">
+<section class="prediction" aria-labelledby="predictionTitle">
+  <header class="prediction-intro">
+    <p class="prediction-kicker">动手试一试 · 手写数字识别</p>
+    <h1 id="predictionTitle">写一个数字，看看模型怎么猜</h1>
+    <p>在黑色画板上用鼠标或手指写 0～9，或者用键盘操作下方的“选择本地图片”，上传只包含一个数字的 PNG/JPEG 图片。键盘用户不必使用画板。</p>
+    <p>图片只在当前浏览器中读取；识别时仅向本机服务发送处理后的 28 × 28 数字矩阵，不上传原图。模型还没训练时，结果只是随机初始化的判断。</p>
+  </header>
+  <div class="prediction-grid">
+    <div class="prediction-card">
+      <h2>第一步 · 输入数字</h2>
+      <canvas id="drawCanvas" width="280" height="280" role="img" aria-label="用鼠标或手指手写数字的画板；键盘用户可用下方的选择本地图片功能">浏览器不支持画板，请使用下方的图片上传。</canvas>
+      <div class="prediction-controls">
+        <button id="clearDraw" type="button">清空画板和图片</button>
+        <label for="brushSize">笔刷粗细 <input id="brushSize" type="range" min="9" max="32" value="20"></label>
+      </div>
+      <label for="uploadDigit">选择本地图片（PNG/JPEG，不超过 5 MB）</label>
+      <input id="uploadDigit" type="file" accept="image/png,image/jpeg">
+      <label class="prediction-check" for="invertImage"><input id="invertImage" type="checkbox"> 图片是黑字白底（勾选后反色）</label>
+    </div>
+    <div class="prediction-card">
+      <h2>第二步 · 识别并观察</h2>
+      <p>我们会先找出笔画，裁剪空白、缩放并居中，转换成黑底白字的 28 × 28 图片。</p>
+      <canvas id="inputPreview" width="28" height="28" role="img" aria-label="模型真正收到的 28 乘 28 像素输入预览"></canvas>
+      <p class="prediction-hint">照片、多个数字和杂乱背景与训练用的 MNIST 不同，可能识别不准。</p>
+      <button id="predictButton" class="prediction-primary" type="button">识别这个数字</button>
+      <p id="predictResult" role="status" aria-live="polite">请先输入数字。</p>
+      <div id="predictProbs" aria-label="数字 0 到 9 的预测概率"></div>
+    </div>
+  </div>
+</section>

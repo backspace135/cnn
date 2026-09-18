@@ -49,10 +49,12 @@ import torch
 import torch.nn as nn
 
 from model import HandwritingCNN
+from training.checkpoint import MODEL_VERSION, load_checkpoint, save_checkpoint
+from training.device import hardware_info, resolve_device
+from training.inference import predict_probs, validate_pixels
 
 DATA_FILE = Path(__file__).resolve().parent / "data" / "mnist.npz"
 MODEL_FILE = Path(__file__).resolve().parent / "data" / "checkpoints" / "latest.pt"
-MODEL_VERSION = 1
 
 # 默认超参数（可在网页"调参实验室"里改，再点重置生效）
 DEFAULT_EPOCHS = 6
@@ -68,32 +70,6 @@ MAX_LOSS_POINTS = 6000  # loss 曲线最多保留的数据点个数
 SAMPLE_INDICES = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9,
                   11, 12, 14, 20, 33, 55, 88, 100,
                   150, 300, 500, 800, 1200, 2000, 3500, 5000]
-
-
-def hardware_info():
-    """Describe the PyTorch runtime; a CPU build cannot use a CUDA GPU."""
-    available = torch.cuda.is_available()
-    reason = ""
-    if not available:
-        reason = ("当前为 CPU 版 PyTorch，请运行 install_cuda.bat 后重启服务。"
-                  if torch.version.cuda is None else
-                  "CUDA 不可用，请检查 NVIDIA 显卡及驱动，或选择 CPU 模式。")
-    return {
-        "cuda_available": available,
-        "cuda_reason": reason,
-        "cuda_version": torch.version.cuda,
-        "gpu_name": torch.cuda.get_device_name(0) if available else None,
-        "torch_version": str(torch.__version__),
-    }
-
-
-def resolve_device(mode):
-    if mode not in ("auto", "cpu", "cuda"):
-        raise ValueError("训练模式必须为 auto、cpu 或 cuda。")
-    if mode == "cuda" and not torch.cuda.is_available():
-        raise ValueError("无法启用 CUDA：" + hardware_info()["cuda_reason"])
-    return torch.device("cuda" if mode == "cuda" or
-                        (mode == "auto" and torch.cuda.is_available()) else "cpu")
 
 
 class Trainer:
@@ -382,6 +358,7 @@ class Trainer:
                 self.state["test_confusion"] = conf.tolist()
                 self.state["final_acc"] = self.state["epochs_val_acc"][-1] \
                     if self.state["epochs_val_acc"] else None
+                # 先结束训练状态，避免写盘期间仍允许用户发起取消。
                 self.state["status"] = "done"
             self.log("训练完成！")
             try:
@@ -618,17 +595,7 @@ class Trainer:
 
     @staticmethod
     def validate_pixels(pixels):
-        """预测 API 只接收一张 28×28 数值矩阵，不接受文件路径或 pickle。"""
-        if not isinstance(pixels, list) or len(pixels) != 28:
-            raise ValueError("pixels 必须是 28×28 数字矩阵。")
-        for row in pixels:
-            if not isinstance(row, list) or len(row) != 28:
-                raise ValueError("pixels 必须是 28×28 数字矩阵。")
-            for value in row:
-                if (isinstance(value, bool) or not isinstance(value, (int, float))
-                        or not math.isfinite(value) or not 0 <= value <= 1):
-                    raise ValueError("像素必须是 [0,1] 之间的有限数字。")
-        return np.asarray(pixels, dtype=np.float32)
+        return validate_pixels(pixels)
 
     def predict(self, pixels):
         """推理不会修改模型权重、BatchNorm 统计或原来的 train/eval 模式。"""
@@ -636,14 +603,7 @@ class Trainer:
         if not image.any():
             raise ValueError("画布为空，请先写一个数字。")
         with self.model_lock:
-            previous_mode = self.model.training
-            self.model.eval()
-            try:
-                with torch.no_grad():
-                    x = torch.from_numpy(image).unsqueeze(0).unsqueeze(0).to(self.device)
-                    probs = torch.softmax(self.model(x), dim=1)[0].cpu().tolist()
-            finally:
-                self.model.train(previous_mode)
+            probs = predict_probs(self.model, image, self.device)
         label = int(np.argmax(probs))
         with self.lock:
             trained = bool(self.state["epochs_val_acc"]) or self.state.get("model_loaded", False)
@@ -662,16 +622,8 @@ class Trainer:
                 trained = bool(self.state["epochs_val_acc"]) or self.state.get("model_loaded", False)
             if not trained:
                 raise RuntimeError("模型尚未训练；请先完成至少一轮训练。")
-            self.model_file.parent.mkdir(parents=True, exist_ok=True)
-            temp = self.model_file.with_suffix(".part")
-            try:
-                with self.model_lock:
-                    torch.save({"version": MODEL_VERSION, "state_dict": self.model.state_dict(),
-                                "config": cfg, "epoch": epoch, "seed": SEED,
-                                "input": "28x28 grayscale [0,1], white digit on black"}, temp)
-                os.replace(temp, self.model_file)
-            finally:
-                temp.unlink(missing_ok=True)
+            with self.model_lock:
+                save_checkpoint(self.model_file, self.model, cfg, epoch, SEED)
             with self.lock:
                 self.state["checkpoint_available"] = True
             return str(self.model_file)
@@ -681,17 +633,8 @@ class Trainer:
         with self.control_lock:
             if self._thread is not None and self._thread.is_alive():
                 raise RuntimeError("请先停止训练再加载模型。")
-            if not self.model_file.is_file():
-                raise FileNotFoundError("没有已保存模型，请先完成训练并保存。")
-            payload = torch.load(self.model_file, map_location="cpu", weights_only=True)
-            if not isinstance(payload, dict) or payload.get("version") != MODEL_VERSION:
-                raise ValueError("存档版本不兼容。")
-            config = payload.get("config")
-            required = ("epochs", "lr", "batch_size", "dropout")
-            if not isinstance(config, dict) or "state_dict" not in payload or any(k not in config for k in required):
-                raise ValueError("存档缺少完整的模型配置或权重。")
-            validated = self._validated_config(**{k: config[k] for k in required},
-                                               device_mode=str(self.device))
+            payload, config = load_checkpoint(self.model_file)
+            validated = self._validated_config(**config, device_mode=str(self.device))
             candidate = HandwritingCNN(dropout_p=validated["dropout"]).to(self.device)
             try:
                 candidate.load_state_dict(payload["state_dict"], strict=True)

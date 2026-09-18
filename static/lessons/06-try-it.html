@@ -1,0 +1,43 @@
+<article class="lesson" data-lesson="06">
+  <header>
+    <p>第 06 课 · 自己试一试</p>
+    <h1>写数字，做一次公平的小实验</h1>
+    <p>把模型用于新图片叫推理：只读已有权重并给出预测，不在这一步继续训练。先观察输入，再观察结果，最后只改一个训练设置比较两次运行。</p>
+  </header>
+  <section class="lesson-step" data-step="06-1">
+    <h2>1. 把自己的数字变成模型能看的样子</h2>
+    <p class="goal">目标：先看预处理（图片送入模型前的裁剪、缩放、居中和明暗整理）结果，再按“识别”。</p>
+    <p class="example">具体例子：模型训练时看的是 <code>28 × 28</code> 的黑底、较亮笔画的单个数字。你写一张 <code>280 × 280</code> 的画布图，浏览器会按笔画裁剪并缩放成 <code>28 × 28</code> 输入预览；这不表示简单地把宽高各除以 <code>10</code>，笔画位置也会调整。</p>
+    <p class="guess">先猜：一张白底黑字的文件直接按黑底白字送入模型，与训练图片更像还是更不像？</p>
+    <p class="action">动手：先完成第 04 课的训练，或在训练面板加载此前保存的本机模型；打开 <a href="#/prediction">手写识别</a>，用鼠标或触摸画一个清楚的单个数字，检查输入预览后点击“识别这个数字”。如果使用自己电脑上的 PNG/JPEG 白底黑字图片，勾选“图片是黑字白底”并重新检查预览；不要用多人照片或包含多个数字的图。</p>
+    <div class="lesson-feedback" role="status" aria-live="polite">核对：白底黑字若不反色通常更不像训练输入；预览为空白或笔画很小，应重画或调整图片。模型未训练时的结果没有学习意义。</div>
+    <p class="retell">复述：模型不是直接读取我的原始画布，而是读取整理后的 <code>28 × 28</code> 数表。</p>
+    <p class="next">下一步：读懂“最高概率”，但别把它当保证。</p>
+  </section>
+  <section class="lesson-step" data-step="06-2">
+    <h2>2. 看预测，也看不确定性</h2>
+    <p class="goal">目标：区分预测数字、概率估计和真实答案。</p>
+    <p class="example">具体例子：假设你写了一个 <code>7</code>，模型显示“预测 1：<code>60%</code>，预测 7：<code>30%</code>，其余数字合计 <code>10%</code>”。这些数是模型由分数转换出的本次概率估计，总和为 <code>100%</code>；最高的 <code>60%</code> 并不代表它一定正确。这里真实答案是你写的 <code>7</code>，预测 <code>1</code> 就是一次错误。</p>
+    <p class="guess">先猜：看到“预测 1：60%”，能否说“它已经证明这个数字就是 1”？</p>
+    <p class="action">动手：在手写识别页把自己实际写的数字与显示的预测并排记下，再看输入预览有无裁切或反色问题；若一次猜错，试着写得更居中、笔画更清晰，再识别一次。别为了迎合模型把原来的真实答案改掉。</p>
+    <div data-quiz aria-label="预测概率自测">
+      <p>自测：预测 1 的估计概率是 60%，能证明它一定是 1 吗？</p>
+      <button type="button" data-correct="false" data-explanation="概率估计不是保证；本例真实写的是 7，预测 1 就错了。">能证明</button>
+      <button type="button" data-correct="true" data-explanation="答对了：概率最高的类别也可能猜错，先核对真实答案与输入预览。">不能证明</button>
+    </div>
+    <div class="lesson-feedback" role="status" aria-live="polite">核对：不能；百分比只描述模型对本次输入的相对估计，不等于客观正确概率保证。照片、复杂背景和陌生笔迹都可能让它猜错。</div>
+    <p class="retell">复述：自己知道的真实数字与模型猜的数字可以不同；概率再高也可能错。</p>
+    <p class="next">下一步：试一个小改动，检查它是否改变验证结果。</p>
+  </section>
+  <section class="lesson-step" data-step="06-3">
+    <h2>3. 每次只改一个旋钮</h2>
+    <p class="goal">目标：会用基线（第一次运行的设置和结果）对比另一次运行，同时承认单次结果有波动。</p>
+    <p class="example">具体例子：先记录训练轮数 <code>6</code>、学习率 <code>0.001</code>、批大小 <code>64</code>、Dropout 比例 <code>0.3</code> 的一次完整运行；再只把学习率改为 <code>0.0001</code>，其他设置不变。学习率是每次改权重时的步长；从 <code>0.001</code> 到 <code>0.0001</code> 是原来的 <code>0.0001 ÷ 0.001 = 0.1</code> 倍。先猜变化方向，不要预设准确率一定升或降。</p>
+    <p class="guess">先猜：较小学习率在同样轮数里可能更慢，还是一定更准确？先写下你的假设。</p>
+    <p class="action">动手：打开 <a href="#/lab">调参实验</a>，先记下默认设置的一次完整运行及验证准确率；再只修改学习率，应用并重新训练，记录第二次的验证准确率和耗时。若互动区已加载，也在其中填写“事先预测 / 实际观察 / 仍不确定的地方”。运行未完成、取消或报错时不要把它和完整成绩直接比较；可在本地文件 <code>docs/experiments.md</code> 看记录格式，不假定网页能直接打开该文件。</p>
+    <div data-activity="experiment" aria-label="单变量训练实验记录互动区"></div>
+    <div class="lesson-feedback" role="status" aria-live="polite">核对：只变一个设置，才较容易解释差异；即便本次验证分数变高，也不能保证下一次或所有手写数字都更好。不要反复按独立测试成绩挑选参数。</div>
+    <p class="retell">复述：先预测、只改一个设置、记录实际验证结果，再说“本次观察到……”；不说“准确率一定达到……”。</p>
+    <p class="next">完成 00–06：你已经能从文件夹启动课程，手算局部乘加，区分训练与评估，并对自己的预测提出可以验证的问题。</p>
+  </section>
+</article>

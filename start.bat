@@ -13,11 +13,10 @@ if errorlevel 1 (
   pause
   exit /b 1
 )
+chcp 65001 >nul
 if not exist "data\mnist.npz" (
-  echo [ERROR] data\mnist.npz is missing. Run: python download_data.py
-  echo The first three examples do not require MNIST data.
-  pause
-  exit /b 1
+  echo [提示] 未找到 MNIST 数据 data\mnist.npz，仍会启动 Flask 课程页面。
+  echo [提示] 训练与预测暂不可用；请运行 python download_data.py 下载数据。
 )
 if "%PORT%"=="" set PORT=5000
 if not "%CNN_NO_BROWSER%"=="1" start "" "http://127.0.0.1:%PORT%"

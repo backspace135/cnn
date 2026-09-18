@@ -1,0 +1,52 @@
+<article class="lesson" data-lesson="00">
+  <header>
+    <p>第 00 课 · 从 Windows 文件夹开始</p>
+    <h1>先把学习环境准备好</h1>
+    <p>即使本地网页还打不开，也能从项目文件夹按下面的顺序操作。这里的“本机”就是你正在使用的电脑；无需账号或显卡。首次安装程序和下载练习图片需要联网，之后可离线学习。</p>
+  </header>
+  <section class="lesson-step" data-step="00-1">
+    <h2>1. 找到项目文件夹</h2>
+    <p class="goal">目标：找到放着课程文件的文件夹，不用先打开本地网页。</p>
+    <p class="example">具体例子：若你把下载的压缩包解压到“下载”里的 <code>cnn</code> 文件夹，打开它应能同时看到 <code>install.bat</code>、<code>start.bat</code> 和 <code>README.md</code>；这 3 个文件是不同的，不能只打开压缩包里的一层预览。</p>
+    <p class="guess">先猜：现在看到的是压缩包预览，还是已经解压、含有这 3 个文件的文件夹？</p>
+    <p class="action">动手：按 <kbd>Win</kbd>+<kbd>E</kbd> 打开“文件资源管理器”，到“下载”找到项目；若仍是压缩包，右键选择“全部解压”，再打开解压出的文件夹。需要离线看说明时，右键 <code>README.md</code>，选“打开方式”→“记事本”。</p>
+    <div class="lesson-feedback" role="status" aria-live="polite">核对：能在同一个文件夹看到这 3 个文件才继续；如果只看到另一个名叫 cnn 的文件夹，再打开那一层。</div>
+    <p class="retell">复述：项目文件夹是这些文件共同所在的位置，不是浏览器网址。</p>
+    <p class="next">下一步：第 2 步检查电脑能否运行 Python。</p>
+  </section>
+  <section class="lesson-step" data-step="00-2">
+    <h2>2. 检查 Python</h2>
+    <p class="goal">目标：让 Windows 找到 Python——运行本项目脚本的程序。</p>
+    <p class="example">具体例子：输入 <code>python --version</code>，如果显示 <code>Python 3.11.0</code>，版本是 3.11，符合本项目要求的 3.11 或更新版本；如果显示“找不到”或只打开商店，就还不能继续。</p>
+    <p class="guess">先猜：自己的电脑会显示版本号，还是提示找不到 Python？先写下猜测。</p>
+    <p class="action">动手：在项目文件夹窗口顶部的地址栏输入 <code>cmd</code> 并按回车，出现黑色命令窗口后输入 <code>python --version</code> 再按回车。若没有 3.11 或更新版本，先从 Python 官方网站取得 Windows 安装程序，安装时勾选“Add python.exe to PATH”（让命令窗口能找到它），安装后关闭旧命令窗口并重新从文件夹地址栏打开，再试一次。安装程序可在打开本项目网页之前完成；不要从不明网站下载。</p>
+    <div class="lesson-feedback" role="status" aria-live="polite">核对：看到 <code>Python 3.11</code> 或更高版本才继续；若显示找不到，检查安装时是否把 Python 加入 PATH，并重新打开命令窗口。</div>
+    <p class="retell">复述：<code>python --version</code> 是检查运行程序是否可用，不会开始训练。</p>
+    <p class="next">下一步：第 3 步安装运行课程需要的程序包。</p>
+  </section>
+  <section class="lesson-step" data-step="00-3">
+    <h2>3. 先安装依赖，数据等到训练前再下载</h2>
+    <p class="goal">目标：先备齐依赖（项目运行需要的程序包），就可以打开课程 00–03；MNIST 练习图片等到第 04 课开始真实训练前再准备。</p>
+    <p class="example">具体例子：运行 <code>install.bat</code> 后，程序包会放在项目里的 <code>libs</code> 文件夹，就能先学前 <code>4</code> 课（00、01、02、03）。以后运行 <code>python download_data.py</code> 才会生成 <code>data/mnist.npz</code>；MNIST 是带正确答案的手写数字图片集合，供真实训练使用。</p>
+    <p class="guess">先猜：只有 <code>libs</code>、没有 <code>data/mnist.npz</code>，能不能先打开网页学习课程 00–03？</p>
+    <p class="action">动手：保持网络连接，在项目文件夹的命令窗口输入 <code>install.bat</code> 并回车，等待两段安装都成功。若报错，检查网络、磁盘空间和 Python 版本后重试；不要把报错当成功。现在不必下载 MNIST；到第 04 课准备启动真实训练时，再在同一文件夹输入 <code>python download_data.py</code> 并等待出现“[完成]”及 <code>data/mnist.npz</code>。首次下载需要联网。</p>
+    <div data-quiz aria-label="安装与下载自测">
+      <p>自测：依赖装好但尚未下载 MNIST，能先打开网页学习课程 00–03 吗？</p>
+      <button type="button" data-correct="true" data-explanation="答对了：先安装 libs 就能打开前四课；第 04 课真实训练前再下载 MNIST。">能先学习</button>
+      <button type="button" data-correct="false" data-explanation="网页中的课程 00–03 无须 MNIST；缺数据只影响真实训练等需要数据的功能。">必须先下载</button>
+    </div>
+    <div class="lesson-feedback" role="status" aria-live="polite">核对：<code>libs</code> 安装成功即可打开课程 00–03；<code>data/mnist.npz</code> 在第 04 课真实训练前再下载。</div>
+    <p class="retell">复述：安装运行依赖是开课前的事，下载图片是开始真实训练前的事。</p>
+    <p class="next">下一步：第 4 步打开只在这台电脑上运行的课程网页。</p>
+  </section>
+  <section class="lesson-step" data-step="00-4">
+    <h2>4. 启动本地网页</h2>
+    <p class="goal">目标：打开课程，但先不启动训练。</p>
+    <p class="example">具体例子：<code>http://127.0.0.1:5000</code> 中的 <code>127.0.0.1</code> 指自己的电脑，<code>5000</code> 是本项目默认使用的端口号（服务入口编号），不是外部网站。</p>
+    <p class="guess">先猜：关闭运行中的黑色命令窗口后，网页还能连接这个本地服务吗？</p>
+    <p class="action">动手：依赖安装成功后，在项目文件夹的命令窗口输入 <code>start.bat</code> 并回车；它通常会自动打开浏览器。若没有自动打开，在浏览器地址栏输入 <code>http://127.0.0.1:5000</code> 并回车。保持命令窗口开着；即使尚未下载图片，也可以阅读课程 00–03，网页不会自动训练。若提示缺少依赖，回第 3 步检查安装；若提示端口被占用，先关闭另一个已运行的本项目窗口，再试。</p>
+    <div class="lesson-feedback" role="status" aria-live="polite">核对：浏览器出现课程页面且命令窗口保持打开就成功；缺少 MNIST 时数据功能可能提示“尚未准备”，但不妨碍先读前四课。关掉命令窗口通常会断开网页服务。</div>
+    <p class="retell">复述：浏览器只是观看和操作界面，真正运行课程服务的是本机命令窗口。</p>
+    <p class="next">下一课 <a href="#/learn/01">01：一张手写数字图片如何变成可以计算的数字</a>。</p>
+  </section>
+</article>
